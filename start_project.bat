@@ -1,0 +1,13 @@
+@echo off
+echo 🚀 Starting Paper Trading Platform...
+
+echo 📦 Starting Backend (Express)...
+start "Backend (Express)" cmd /k "cd backend-express && npm run dev"
+
+echo 📊 Starting Data Engine (Python)...
+start "Data Engine (Python)" cmd /k "cd data-engine && python market_simulator.py"
+
+echo 🎨 Starting Frontend (Next.js)...
+start "Frontend (Next.js)" cmd /k "cd frontend-nextjs && npm run dev"
+
+echo ✅ All services started! Access the app at http://localhost:3000
