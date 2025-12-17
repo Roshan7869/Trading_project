@@ -5,6 +5,10 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from root directory
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -12,6 +16,8 @@ import userRoutes from './routes/user';
 import orderRoutes from './routes/order';
 import portfolioRoutes from './routes/portfolio';
 import watchlistRoutes from './routes/watchlist';
+import accountRoutes from './routes/accounts';
+import { marketDataService } from './services/MarketDataService';
 
 dotenv.config();
 
@@ -40,6 +46,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/watchlist', watchlistRoutes);
+app.use('/api/accounts', accountRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -53,7 +60,6 @@ mongoose.connect(MONGO_URL)
 
 // Redis Setup for Market Data
 const redisSubscriber = createClient({ url: REDIS_URL });
-const marketDataCache = new Map<string, any>();
 
 redisSubscriber.on('error', (err) => console.error('Redis Client Error:', err));
 
@@ -66,7 +72,7 @@ redisSubscriber.connect().then(() => {
             const marketData = JSON.parse(message);
 
             // Update cache
-            marketDataCache.set(marketData.symbol, marketData);
+            marketDataService.updatePrice(marketData);
 
             // Broadcast to all connected clients
             io.emit('market_update', marketData);
@@ -83,7 +89,7 @@ io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
 
     // Send current market data cache to new client
-    socket.emit('initial_market_data', Array.from(marketDataCache.values()));
+    socket.emit('initial_market_data', marketDataService.getAllPrices());
 
     socket.on('disconnect', () => {
         console.log('🔌 Client disconnected:', socket.id);
@@ -92,13 +98,13 @@ io.on('connection', (socket) => {
 
 // API endpoint to get current market prices
 app.get('/api/market/prices', (req, res) => {
-    const prices = Array.from(marketDataCache.values());
+    const prices = marketDataService.getAllPrices();
     res.json({ prices });
 });
 
 app.get('/api/market/price/:symbol', (req, res) => {
     const { symbol } = req.params;
-    const price = marketDataCache.get(symbol);
+    const price = marketDataService.getPrice(symbol);
 
     if (!price) {
         return res.status(404).json({ error: 'Symbol not found' });
