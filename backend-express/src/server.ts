@@ -55,13 +55,59 @@ app.get('/api/health', (req, res) => {
 
 // MongoDB connection
 mongoose.connect(MONGO_URL)
-    .then(() => console.log('✅ MongoDB connected'))
+    .then(async () => {
+        console.log('✅ MongoDB connected');
+
+        // Seed test data for TEST_MODE
+        const { seedTestData } = await import('./utils/testSeeder');
+        await seedTestData();
+    })
     .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Redis Setup for Market Data
 const redisSubscriber = createClient({ url: REDIS_URL });
 
-redisSubscriber.on('error', (err) => console.error('Redis Client Error:', err));
+redisSubscriber.on('error', (err) => {
+    console.error('Redis Client Error:', err.message);
+});
+
+// Mock market data for testing when Redis is unavailable
+const MOCK_STOCKS = {
+    'RELIANCE': 2450.50, 'TCS': 3680.75, 'INFY': 1545.30,
+    'HDFCBANK': 1685.20, 'ICICIBANK': 1025.80, 'ITC': 445.65,
+    'SBIN': 625.40, 'BHARTIARTL': 1220.90, 'HINDUNILVR': 2545.30, 'LT': 3420.75
+};
+
+function startMockMarketData() {
+    console.log('📊 Starting MOCK market data (Redis unavailable)');
+
+    // Initialize with base prices
+    Object.entries(MOCK_STOCKS).forEach(([symbol, price]) => {
+        marketDataService.updatePrice({
+            symbol, price, change: 0,
+            timestamp: new Date().toISOString(),
+            volume: 100000, source: 'mock'
+        });
+    });
+
+    // Simulate price updates every 2 seconds
+    setInterval(() => {
+        Object.entries(MOCK_STOCKS).forEach(([symbol, basePrice]) => {
+            const change = (Math.random() - 0.5) * 0.5; // -0.25% to +0.25%
+            const newPrice = basePrice * (1 + change / 100);
+            const marketData = {
+                symbol,
+                price: Math.round(newPrice * 100) / 100,
+                change: Math.round(change * 100) / 100,
+                timestamp: new Date().toISOString(),
+                volume: Math.floor(Math.random() * 500000),
+                source: 'mock'
+            };
+            marketDataService.updatePrice(marketData);
+            io.emit('market_update', marketData);
+        });
+    }, 2000);
+}
 
 // Connect Redis and subscribe to market data
 redisSubscriber.connect().then(() => {
@@ -82,7 +128,10 @@ redisSubscriber.connect().then(() => {
             console.error('Error parsing market data:', error);
         }
     });
-}).catch(err => console.error('❌ Redis connection error:', err));
+}).catch(err => {
+    console.warn('⚠️ Redis connection failed, using mock market data:', err.message);
+    startMockMarketData();
+});
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

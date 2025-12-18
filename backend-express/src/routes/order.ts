@@ -4,7 +4,13 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 
+// Simplified order endpoint for frontend
+router.post('/quick', authenticateToken, orderController.placeSimpleOrder);
+
+// Advanced order endpoint (requires full schema)
 router.post('/place', authenticateToken, orderController.placeOrder);
+
+// Order history
 router.get('/history', authenticateToken, orderController.getOrders);
 
 export default router;

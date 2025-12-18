@@ -11,9 +11,11 @@ export const api = axios.create({
 
 // Add token to requests
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token')
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+        }
     }
     return config
 })
@@ -32,20 +34,28 @@ export const userAPI = {
     getWallet: () => api.get('/api/user/wallet'),
 }
 
-// Order APIs
+// Order APIs - Using simplified endpoint
 export const orderAPI = {
     placeOrder: (data: {
         symbol: string
         type: 'BUY' | 'SELL'
         quantity: number
-        price: number
-    }) => api.post('/api/order/place', data),
-    getHistory: () => api.get('/api/order/history'),
+        price?: number
+    }) => api.post('/api/order/quick', data),
+    getHistory: (accountId?: string) => api.get('/api/order/history', { params: { accountId } }),
 }
 
-// Portfolio APIs
+// Portfolio APIs - Updated to match new backend response
 export const portfolioAPI = {
     get: () => api.get('/api/portfolio'),
+    getSummary: () => api.get('/api/portfolio/summary'),
+}
+
+// Account APIs
+export const accountAPI = {
+    getAccounts: () => api.get('/api/accounts'),
+    create: (data: { accountName: string; initialCapital?: number }) =>
+        api.post('/api/accounts', data),
 }
 
 // Watchlist APIs
