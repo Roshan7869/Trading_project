@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # Database Service
+  mongo:
+    image: mongo:latest
+    container_name: trading-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - trading-net
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Cache & Pub/Sub Service
+  redis:
+    image: redis:latest
+    container_name: trading-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - trading-net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Service
+  backend:
+    build: ./backend-express
+    container_name: trading-backend
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - MONGODB_URI=mongodb://mongo:27017/paper_trading
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=docker_dev_secret_key_123
+      - TEST_MODE=true
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trading-net
+
+  # Data Engine Service
+  data-engine:
+    build: ./data-engine
+    container_name: trading-data-engine
+    restart: always
+    environment:
+      - REDIS_URL=redis://redis:6379
+    # Add Angel One credentials here if needed, or use .env file
+    # env_file:
+    #   - ./data-engine/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - trading-net
+
+  # Frontend Service
+  frontend:
+    build: ./frontend-nextjs
+    container_name: trading-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      - backend
+    networks:
+      - trading-net
+
+volumes:
+  mongo_data:
+
+
+networks:
+  trading-net:
+    driver: bridge

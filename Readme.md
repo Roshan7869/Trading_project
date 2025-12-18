@@ -80,61 +80,34 @@ This platform simulates real stock market trading, allowing users to:
 ## Quick Start
 
 ### Prerequisites
-- **Node.js 18+**
-- **MongoDB** (running on localhost:27017)
-- **Redis** (running on localhost:6379 - Optional, marks backend as "Mock Mode" if missing)
-
-### Installation
-
-1.  **Clone Repository**
-    ```bash
-    git clone <repository-url>
-    cd Paper_Trading
-    ```
-
-2.  **Install Dependencies**
-    ```bash
-    # Backend
-    cd backend-express
-    npm install
-
-    # Frontend
-    cd ../frontend-nextjs
-    npm install
-
-    # Data Engine (Optional if using Mock Mode)
-    cd ../data-engine
-    pip install -r requirements.txt
-    ```
+- **Docker Desktop** (Recommended)
+OR
+- **Node.js 18+**, **MongoDB**, **Redis**, **Python 3.10+**
 
 ### Running the Application
 
-**Option 1: Using PowerShell Script (Windows)**
-This script starts all components (requires new terminals for each).
+**Option 1: Docker Compose (Recommended)**
+This is the easiest way to run the entire backend, frontend, databases, and data engine with a single command. It eliminates all manual setup and dependency issues.
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop).
+2. Open a terminal in the project root.
+3. Run:
+   ```bash
+   docker-compose up --build
+   ```
+4. Access the application:
+   *   **Frontend**: http://localhost:3000
+   *   **Backend API**: http://localhost:4000
+   *   **MongoDB & Redis**: Managed automatically in containers.
+
+**Option 2: Using PowerShell Script (Windows)**
+This script starts all components individually (requires new terminals for each).
 ```powershell
 .\start_project.ps1
 ```
 
-**Option 2: Docker containers (Recommended for Database)**
-```bash
-docker run -d -p 27017:27017 --name mongodb mongo:latest
-docker run -d -p 6379:6379 --name redis redis:latest
-```
-
 **Option 3: Manual Start**
-```bash
-# Terminal 1: Backend
-cd backend-express
-npm run dev
-
-# Terminal 2: Frontend
-cd frontend-nextjs
-npm run dev
-
-# Terminal 3: Data Engine (Optional)
-cd data-engine
-python market_simulator.py --mode=simulate
-```
+Refer to the `start_project.ps1` script for the individual commands to start Redis, MongoDB, Backend, Data Engine, and Frontend.
 
 ## API Reference
 
@@ -162,13 +135,14 @@ The backend includes a `TEST_MODE` in `src/middleware/auth.ts` and `src/utils/te
 - `backend-express/src/services/OrderService.ts`: Bridges frontend simple orders to complex trading engine.
 - `backend-express/src/utils/symbolMapper.ts`: Maps stock symbols (RELIANCE) to Angel One Tokens.
 - `frontend-nextjs/context/MarketContext.tsx`: Handles Socket.io connections and live P&L calculations.
+- `docker-compose.yml`: Docker orchestration for the entire stack.
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| **MongoDB timeout** | Ensure MongoDB is running on port 27017. Use Docker if needed. |
-| **Redis connection failed** | Backend will auto-switch to **Mock Market Data**. This is normal for local dev. |
+| **MongoDB timeout** | Use Docker (Option 1). If running locally, ensure `mongod` is on port 27017. |
+| **Redis connection failed** | Use Docker. Backend will auto-switch to **Mock Market Data** if Redis is missing locally. |
 | **"EADDRINUSE: 4000"** | Kill existing node processes: `taskkill /F /IM node.exe` |
 
 ## License

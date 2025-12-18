@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import io, { Socket } from 'socket.io-client';
 
 interface MarketData {
@@ -40,6 +40,8 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  const updatesBuffer = useRef<Map<string, MarketData>>(new Map());
+
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
     setSocket(newSocket);
@@ -65,17 +67,29 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    // Handle real-time market updates
+    // Handle real-time market updates - BUFFERED
     newSocket.on('market_update', (data: MarketData) => {
-      setMarketData((prev) => {
-        const newMap = new Map(prev);
-        newMap.set(data.symbol, data);
-        return newMap;
-      });
+      // Store in buffer instead of updating state immediately
+      updatesBuffer.current.set(data.symbol, data);
     });
+
+    // Flush buffer every 500ms to reduce re-renders
+    const flushInterval = setInterval(() => {
+      if (updatesBuffer.current.size > 0) {
+        setMarketData((prev) => {
+          const newMap = new Map(prev);
+          updatesBuffer.current.forEach((value, key) => {
+            newMap.set(key, value);
+          });
+          updatesBuffer.current.clear();
+          return newMap;
+        });
+      }
+    }, 500);
 
     return () => {
       newSocket.disconnect();
+      clearInterval(flushInterval);
     };
   }, []);
 

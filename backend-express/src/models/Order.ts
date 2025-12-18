@@ -109,7 +109,7 @@ const OrderSchema: Schema = new Schema({
 
 // Indexes
 OrderSchema.index({ accountId: 1, createdAt: -1 });
-OrderSchema.index({ orderId: 1 }, { unique: true });
+// OrderSchema.index({ orderId: 1 }, { unique: true }); // Removed: Already defined in schema
 OrderSchema.index({ status: 1 });
 
 export default mongoose.model<IOrder>('Order', OrderSchema);
