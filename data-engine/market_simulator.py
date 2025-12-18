@@ -199,6 +199,10 @@ def main():
     
     try:
         # Check Redis connection
+        redis_url = Config.REDIS_URL
+        masked_url = redis_url.replace(redis_url.split('@')[0].split('//')[1].split(':')[1], '****') if '@' in redis_url else redis_url
+        logger.info(f'Connecting to Redis at: {masked_url}')
+        
         redis_client.ping()
         logger.info('[OK] Connected to Redis')
     except Exception as e:
