@@ -18,6 +18,7 @@ import portfolioRoutes from './routes/portfolio';
 import watchlistRoutes from './routes/watchlist';
 import accountRoutes from './routes/accounts';
 import { marketDataService } from './services/MarketDataService';
+import { paperTradingEngine } from './services/PaperTradingEngine';
 
 dotenv.config();
 
@@ -104,6 +105,7 @@ function startMockMarketData() {
                 source: 'mock'
             };
             marketDataService.updatePrice(marketData);
+            paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
             io.emit('market_update', marketData);
         });
     }, 2000);
@@ -119,6 +121,9 @@ redisSubscriber.connect().then(() => {
 
             // Update cache
             marketDataService.updatePrice(marketData);
+
+            // Trigger Order Matching for Limits/Stops
+            paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
 
             // Broadcast to all connected clients
             io.emit('market_update', marketData);

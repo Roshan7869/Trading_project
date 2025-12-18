@@ -126,6 +126,42 @@ export class PaperTradingEngine {
             await accountService.updateBalance(order.accountId.toString(), totalValue, 'CREDIT');
         }
     }
+
+    /**
+     * Process Pending Orders based on Market Tick
+     */
+    async processPendingOrders(symbolName: string, currentPrice: number) {
+        // Find all PENDING orders for this symbol
+        const pendingOrders = await Order.find({
+            symbolName: symbolName,
+            status: 'PENDING'
+        });
+
+        for (const order of pendingOrders) {
+            try {
+                let shouldExecute = false;
+
+                if (order.orderType === 'LIMIT' && order.price) {
+                    // Buy Limit: Execute if current price <= limit price
+                    if (order.transactionType === 'BUY' && currentPrice <= order.price) {
+                        shouldExecute = true;
+                    }
+                    // Sell Limit: Execute if current price >= limit price
+                    else if (order.transactionType === 'SELL' && currentPrice >= order.price) {
+                        shouldExecute = true;
+                    }
+                }
+                // Add logic for STOP_LOSS / STOP_LIMIT if needed here
+
+                if (shouldExecute) {
+                    console.log(`⚡ Executing Pending Order ${order.orderId} for ${symbolName} @ ${currentPrice}`);
+                    await this.executeOrder(order, currentPrice);
+                }
+            } catch (err) {
+                console.error(`Failed to execute pending order ${order.orderId}:`, err);
+            }
+        }
+    }
 }
 
 export const paperTradingEngine = new PaperTradingEngine();
