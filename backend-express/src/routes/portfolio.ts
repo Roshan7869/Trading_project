@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req: any, res) => {
     try {
         // Get user's account
-        const account = await Account.findOne({ userId: req.user.id, status: 'ACTIVE' });
+        const account = await Account.findOne({ userId: req.userId, status: 'ACTIVE' });
 
         if (!account) {
             return res.json({
@@ -83,7 +83,7 @@ router.get('/', authenticateToken, async (req: any, res) => {
 // Get account summary
 router.get('/summary', authenticateToken, async (req: any, res) => {
     try {
-        const account = await Account.findOne({ userId: req.user.id, status: 'ACTIVE' });
+        const account = await Account.findOne({ userId: req.userId, status: 'ACTIVE' });
 
         if (!account) {
             return res.json({

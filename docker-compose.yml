@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Database Service
   mongo:
@@ -38,12 +36,18 @@ services:
     restart: always
     ports:
       - "4000:4000"
+    volumes:
+      - ./backend-express:/app
+      - /app/node_modules
+    command: npm run dev
+    env_file:
+      - .env
     environment:
       - PORT=4000
-      - MONGODB_URI=mongodb://mongo:27017/paper_trading
+      - MONGO_URL=mongodb://mongo:27017/paper_trading
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=docker_dev_secret_key_123
-      - TEST_MODE=true
+      - CORS_ORIGIN=http://localhost:3000
+      - TEST_MODE=false
     depends_on:
       mongo:
         condition: service_healthy
@@ -57,11 +61,13 @@ services:
     build: ./data-engine
     container_name: trading-data-engine
     restart: always
+    volumes:
+      - ./data-engine:/app
+    # Using default CMD from Dockerfile is fine for python, but mounting lets us restart to see changes
+    env_file:
+      - .env
     environment:
       - REDIS_URL=redis://redis:6379
-    # Add Angel One credentials here if needed, or use .env file
-    # env_file:
-    #   - ./data-engine/.env
     depends_on:
       redis:
         condition: service_healthy
@@ -70,13 +76,26 @@ services:
 
   # Frontend Service
   frontend:
-    build: ./frontend-nextjs
+    build:
+      context: ./frontend-nextjs
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:4000
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     container_name: trading-frontend
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend-nextjs:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    env_file:
+      - .env
     environment:
+      - PORT=3000
       - NEXT_PUBLIC_API_URL=http://localhost:4000
-      - INTERNAL_API_URL=http://backend:4000
+      - NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
     depends_on:
       - backend
     networks:

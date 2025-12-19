@@ -6,6 +6,7 @@
 import mongoose from 'mongoose';
 import User from '../models/User';
 import Account from '../models/Account';
+import bcrypt from 'bcryptjs';
 
 // Valid MongoDB ObjectId format (24 hex characters) - must match auth.ts
 const TEST_USER_ID = '000000000000000000000001';
@@ -14,25 +15,32 @@ export async function seedTestData() {
     console.log('🌱 Seeding test data...');
 
     try {
-        // Check if test user exists (using a specific email)
-        let testUser = await User.findOne({ email: 'test@example.com' });
+        // Check if demo user exists
+        let testUser = await User.findOne({ email: 'demo@example.com' });
 
         if (!testUser) {
+            const hashedPassword = await bcrypt.hash('demo123', 10);
+
             // Create test user with a fixed ObjectId for consistency
             testUser = new User({
                 _id: new mongoose.Types.ObjectId(TEST_USER_ID),
-                email: 'test@example.com',
-                password: 'test-password-hash', // Dummy hash
-                firstName: 'Test',
+                email: 'demo@example.com',
+                password: hashedPassword,
+                firstName: 'Demo',
                 lastName: 'User',
-                name: 'Test User',
+                name: 'Demo User',
                 status: 'ACTIVE',
-                walletBalance: 100000
+                walletBalance: 100000,
+                preferences: {
+                    theme: 'dark',
+                    notifications: { email: false, push: true, sms: false },
+                    defaultTimeframe: '1min'
+                }
             });
             await testUser.save();
-            console.log('✅ Test user created:', testUser.email);
+            console.log('✅ Demo user created: demo@example.com / demo123');
         } else {
-            console.log('✅ Test user already exists:', testUser.email);
+            console.log('✅ Demo user already exists:', testUser.email);
         }
 
         // Check if test account exists

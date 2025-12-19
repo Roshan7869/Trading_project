@@ -8,7 +8,7 @@ const router = express.Router();
 // Get user profile
 router.get('/profile', authenticateToken, async (req: any, res) => {
     try {
-        const user = await User.findOne({ id: req.user.id }).select('-password');
+        const user = await User.findById(req.userId).select('-password');
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -21,7 +21,7 @@ router.get('/profile', authenticateToken, async (req: any, res) => {
 // Get wallet balance
 router.get('/wallet', authenticateToken, async (req: any, res) => {
     try {
-        const user = await User.findOne({ id: req.user.id });
+        const user = await User.findById(req.userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }

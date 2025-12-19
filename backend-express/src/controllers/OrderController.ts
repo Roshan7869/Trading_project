@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { paperTradingEngine } from '../services/PaperTradingEngine';
 import { orderService } from '../services/OrderService';
 import Order from '../models/Order';
+import Account from '../models/Account';
 
 export class OrderController {
 
@@ -11,8 +12,8 @@ export class OrderController {
      */
     async placeSimpleOrder(req: Request, res: Response) {
         try {
-            // @ts-ignore - user attached by middleware
-            const userId = req.user.id;
+            // @ts-ignore - userId attached by middleware
+            const userId = (req as any).userId;
             const { symbol, type, quantity, price } = req.body;
 
             const result = await orderService.placeSimpleOrder(userId, {
@@ -48,13 +49,21 @@ export class OrderController {
 
     async getOrders(req: Request, res: Response) {
         try {
-            const { accountId } = req.query;
+            // @ts-ignore - userId attached by middleware
+            const userId = (req as any).userId;
+            let { accountId } = req.query;
+
+            // If no accountId provided, get user's default account
             if (!accountId) {
-                return res.status(400).json({ message: 'AccountId is required' });
+                const account = await Account.findOne({ userId });
+                if (!account) {
+                    return res.json({ orders: [] });
+                }
+                accountId = account._id.toString();
             }
 
             const orders = await Order.find({ accountId }).sort({ createdAt: -1 });
-            res.json(orders);
+            res.json({ orders });
         } catch (error: any) {
             res.status(500).json({ message: error.message });
         }

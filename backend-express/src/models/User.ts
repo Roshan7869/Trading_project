@@ -41,6 +41,7 @@ export interface IUser extends Document {
 
     // Legacy fields being kept for compatibility
     id?: string;
+    clerkId?: string; // Clerk User ID
     name?: string;
     walletBalance?: number;
 }
@@ -84,6 +85,7 @@ const UserSchema: Schema = new Schema({
 
     // Legacy support
     id: { type: String },
+    clerkId: { type: String, unique: true, sparse: true }, // Sparse allows nulls for legacy users
     name: { type: String },
     walletBalance: { type: Number, default: 100000 },
 

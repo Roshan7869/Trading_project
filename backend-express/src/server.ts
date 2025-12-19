@@ -112,31 +112,46 @@ function startMockMarketData() {
 }
 
 // Connect Redis and subscribe to market data
-redisSubscriber.connect().then(() => {
-    console.log('✅ Redis subscriber connected');
+// Connect Redis and subscribe to market data
+const connectRedis = async () => {
+    try {
+        // Create a promise that rejects after a timeout
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Redis connection timeout')), 2000);
+        });
 
-    redisSubscriber.subscribe('market_ticks', (message) => {
-        try {
-            const marketData = JSON.parse(message);
+        // Race between connection and timeout
+        await Promise.race([
+            redisSubscriber.connect(),
+            timeoutPromise
+        ]);
 
-            // Update cache
-            marketDataService.updatePrice(marketData);
+        console.log('✅ Redis subscriber connected');
 
-            // Trigger Order Matching for Limits/Stops
-            paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
+        await redisSubscriber.subscribe('market_ticks', (message) => {
+            try {
+                if (mongoose.connection.readyState !== 1) return;
 
-            // Broadcast to all connected clients
-            io.emit('market_update', marketData);
-
-            // console.log('📊 Market update:', marketData.symbol, marketData.price);
-        } catch (error) {
-            console.error('Error parsing market data:', error);
+                const marketData = JSON.parse(message);
+                marketDataService.updatePrice(marketData);
+                paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
+                io.emit('market_update', marketData);
+            } catch (error) {
+                console.error('Error parsing market data:', error);
+            }
+        });
+    } catch (err: any) {
+        console.warn('⚠️ Redis connection failed/timed out, switching to MOCK data:', err.message);
+        // If connection failed, ensure we're disconnected to stop retries if client is active
+        if (redisSubscriber.isOpen) {
+            await redisSubscriber.disconnect();
         }
-    });
-}).catch(err => {
-    console.warn('⚠️ Redis connection failed, using mock market data:', err.message);
-    startMockMarketData();
-});
+        startMockMarketData();
+    }
+};
+
+// Start initialization
+connectRedis();
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

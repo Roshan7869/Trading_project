@@ -7,7 +7,7 @@ const router = express.Router();
 // Get watchlist
 router.get('/', authenticateToken, async (req: any, res) => {
     try {
-        let watchlist = await Watchlist.findOne({ userId: req.user.id });
+        let watchlist = await Watchlist.findOne({ userId: req.userId });
 
         if (!watchlist) {
             return res.json({ symbols: [] });
@@ -28,11 +28,11 @@ router.post('/add', authenticateToken, async (req: any, res) => {
             return res.status(400).json({ error: 'Symbol is required' });
         }
 
-        let watchlist = await Watchlist.findOne({ userId: req.user.id });
+        let watchlist = await Watchlist.findOne({ userId: req.userId });
 
         if (!watchlist) {
             watchlist = new Watchlist({
-                userId: req.user.id,
+                userId: req.userId,
                 symbols: [symbol]
             });
         } else {
@@ -53,7 +53,7 @@ router.post('/remove', authenticateToken, async (req: any, res) => {
     try {
         const { symbol } = req.body;
 
-        let watchlist = await Watchlist.findOne({ userId: req.user.id });
+        let watchlist = await Watchlist.findOne({ userId: req.userId });
 
         if (watchlist) {
             watchlist.symbols = watchlist.symbols.filter(s => s !== symbol);

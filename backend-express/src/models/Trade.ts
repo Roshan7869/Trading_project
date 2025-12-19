@@ -94,6 +94,6 @@ const TradeSchema: Schema = new Schema({
 // Indexes
 TradeSchema.index({ accountId: 1, createdAt: -1 });
 TradeSchema.index({ scriptToken: 1, executedAt: -1 });
-TradeSchema.index({ tradeId: 1 }, { unique: true });
+// tradeId unique index is already created by schema definition
 
 export default mongoose.model<ITrade>('Trade', TradeSchema);

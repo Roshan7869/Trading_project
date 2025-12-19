@@ -6,7 +6,7 @@ export class AccountController {
     async createAccount(req: Request, res: Response) {
         try {
             // @ts-ignore
-            const userId = req.user.id;
+            const userId = (req as any).userId;
             const { accountName, initialCapital, broker } = req.body;
 
             const account = await accountService.createAccount(userId, accountName, initialCapital, broker);
@@ -19,7 +19,7 @@ export class AccountController {
     async getAccounts(req: Request, res: Response) {
         try {
             // @ts-ignore
-            const userId = req.user.id;
+            const userId = (req as any).userId;
             const accounts = await accountService.getUserAccounts(userId);
             res.json(accounts);
         } catch (error: any) {
@@ -30,7 +30,7 @@ export class AccountController {
     async getAccountById(req: Request, res: Response) {
         try {
             // @ts-ignore
-            const userId = req.user.id;
+            const userId = (req as any).userId;
             const accountId = req.params.id;
             const account = await accountService.getAccount(accountId, userId);
             res.json(account);
