@@ -3,6 +3,8 @@ import Position from '../models/Position';
 import Account from '../models/Account';
 import { authenticateToken } from '../middleware/auth';
 import { marketDataService } from '../services/MarketDataService';
+import { positionService } from '../services/PositionService';
+import { IPosition } from '../models/Position';
 
 const router = express.Router();
 
@@ -25,11 +27,8 @@ router.get('/', authenticateToken, async (req: any, res) => {
             });
         }
 
-        // Get all open positions
-        const positions = await Position.find({
-            accountId: account._id,
-            status: 'OPEN'
-        });
+        // Get all open positions via service (enforces ownership)
+        const positions = await positionService.getOpenPositions(req.userId, account._id.toString());
 
         // Calculate real-time P&L for each position
         const positionsWithPnL = positions.map(position => {

@@ -39,6 +39,11 @@ services:
     volumes:
       - ./backend-express:/app
       - /app/node_modules
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     command: npm run dev
     env_file:
       - .env

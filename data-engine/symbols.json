@@ -1,0 +1,98 @@
+{
+    "symbols": {
+        "RELIANCE": {
+            "symbol": "RELIANCE",
+            "enabled": true,
+            "priority": 10,
+            "description": "Reliance Industries"
+        },
+        "TCS": {
+            "symbol": "TCS",
+            "enabled": true,
+            "priority": 9,
+            "description": "Tata Consultancy Services"
+        },
+        "INFY": {
+            "symbol": "INFY",
+            "enabled": true,
+            "priority": 8,
+            "description": "Infosys Limited"
+        },
+        "HDFCBANK": {
+            "symbol": "HDFCBANK",
+            "enabled": true,
+            "priority": 9,
+            "description": "HDFC Bank"
+        },
+        "ICICIBANK": {
+            "symbol": "ICICIBANK",
+            "enabled": true,
+            "priority": 8,
+            "description": "ICICI Bank"
+        },
+        "ITC": {
+            "symbol": "ITC",
+            "enabled": true,
+            "priority": 7,
+            "description": "ITC Limited"
+        },
+        "SBIN": {
+            "symbol": "SBIN",
+            "enabled": true,
+            "priority": 8,
+            "description": "State Bank of India"
+        },
+        "BHARTIARTL": {
+            "symbol": "BHARTIARTL",
+            "enabled": true,
+            "priority": 7,
+            "description": "Bharti Airtel"
+        },
+        "HINDUNILVR": {
+            "symbol": "HINDUNILVR",
+            "enabled": true,
+            "priority": 8,
+            "description": "Hindustan Unilever"
+        },
+        "LT": {
+            "symbol": "LT",
+            "enabled": true,
+            "priority": 8,
+            "description": "Larsen & Toubro"
+        },
+        "AXISBANK": {
+            "symbol": "AXISBANK",
+            "enabled": true,
+            "priority": 7,
+            "description": "Axis Bank"
+        },
+        "TATAMOTORS": {
+            "symbol": "TATAMOTORS",
+            "enabled": true,
+            "priority": 7,
+            "description": "Tata Motors"
+        },
+        "WIPRO": {
+            "symbol": "WIPRO",
+            "enabled": true,
+            "priority": 6,
+            "description": "Wipro Limited"
+        },
+        "ADANIENT": {
+            "symbol": "ADANIENT",
+            "enabled": true,
+            "priority": 7,
+            "description": "Adani Enterprises"
+        },
+        "BAJFINANCE": {
+            "symbol": "BAJFINANCE",
+            "enabled": true,
+            "priority": 7,
+            "description": "Bajaj Finance"
+        }
+    },
+    "metadata": {
+        "last_updated": "2025-12-20T00:00:00Z",
+        "source": "manual_config"
+    }
+}

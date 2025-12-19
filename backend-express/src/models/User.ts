@@ -1,17 +1,32 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IBrokerConnection {
-    broker: 'ANGEL_ONE' | 'ZERODHA';
-    clientCode?: string; // Angel One
-    apiKey?: string;     // Zerodha
-    requestToken?: string; // Zerodha
-    totp?: string;       // Angel One (Encrypted)
-    accessToken?: string;
-    refreshToken?: string;
+    broker: 'ANGEL_ONE' | 'KOTAK_NEO' | 'ZERODHA';
+
+    // Common fields
+    apiKey?: string;
+    apiSecret?: string;      // Encrypted
+    accessToken?: string;    // Encrypted
+    refreshToken?: string;   // Encrypted
     tokenExpiresAt?: Date;
     isActive: boolean;
     connectedAt?: Date;
     lastSyncAt?: Date;
+
+    // Angel One specific
+    clientCode?: string;
+    pin?: string;            // Encrypted
+    totpSecret?: string;     // Encrypted
+
+    // Kotak Neo specific
+    consumerKey?: string;
+    consumerSecret?: string; // Encrypted
+    mobileNumber?: string;
+    password?: string;       // Encrypted
+
+    // Zerodha specific
+    requestToken?: string;
+    userId?: string;
 }
 
 export interface IUser extends Document {
@@ -47,17 +62,32 @@ export interface IUser extends Document {
 }
 
 const BrokerConnectionSchema = new Schema({
-    broker: { type: String, enum: ['ANGEL_ONE', 'ZERODHA'], required: true },
-    clientCode: { type: String },
+    broker: { type: String, enum: ['ANGEL_ONE', 'KOTAK_NEO', 'ZERODHA'], required: true },
+
+    // Common fields
     apiKey: { type: String },
-    requestToken: { type: String },
-    totp: { type: String },
+    apiSecret: { type: String },
     accessToken: { type: String },
     refreshToken: { type: String },
     tokenExpiresAt: { type: Date },
     isActive: { type: Boolean, default: true },
     connectedAt: { type: Date },
-    lastSyncAt: { type: Date }
+    lastSyncAt: { type: Date },
+
+    // Angel One specific
+    clientCode: { type: String },
+    pin: { type: String },
+    totpSecret: { type: String },
+
+    // Kotak Neo specific
+    consumerKey: { type: String },
+    consumerSecret: { type: String },
+    mobileNumber: { type: String },
+    password: { type: String },
+
+    // Zerodha specific
+    requestToken: { type: String },
+    userId: { type: String }
 });
 
 const UserSchema: Schema = new Schema({

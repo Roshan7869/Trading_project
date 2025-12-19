@@ -14,6 +14,9 @@ from SmartApi.smartWebSocketV2 import SmartWebSocketV2
 
 from config import Config
 from symbol_mapper import get_token_list_for_subscription, get_symbol_from_token, TOKEN_TO_SYMBOL
+from redis_worker import AsyncRedisPublisher
+from reconnect_strategy import ReconnectManager, ReconnectConfig, BackoffStrategy
+from models import TickData, ValidationError
 
 
 class MarketDataWebSocket:
@@ -24,8 +27,8 @@ class MarketDataWebSocket:
     - Connects to Angel One WebSocket V2
     - Subscribes to configured stock tokens
     - Parses binary tick data
-    - Publishes JSON tick data to Redis
-    - Handles reconnection on disconnect
+    - Publishes JSON tick data to Redis (ASYNC)
+    - Handles reconnection on disconnect (EXPONENTIAL BACKOFF)
     """
     
     # Subscription modes
@@ -36,25 +39,35 @@ class MarketDataWebSocket:
     def __init__(self, auth_token: str, feed_token: str, api_key: str = None, client_code: str = None):
         """
         Initialize WebSocket with authentication tokens.
-        
-        Args:
-            auth_token: JWT token from login
-            feed_token: Feed token for WebSocket subscription
-            api_key: Angel One API key (optional, uses config if not provided)
-            client_code: Client code (optional, uses config if not provided)
         """
         self.auth_token = auth_token
         self.feed_token = feed_token
         self.api_key = api_key or Config.ANGEL_ONE_API_KEY
         self.client_code = client_code or Config.ANGEL_ONE_CLIENT_CODE
         
-        # Redis client for publishing
-        self.redis_client = redis.from_url(Config.REDIS_URL)
+        # Async Redis Publisher
+        self.publisher = AsyncRedisPublisher(
+            redis_url=Config.REDIS_URL,
+            channel=Config.MARKET_TICKS_CHANNEL,
+            queue_size=10000,
+            batch_size=1,  # Can increase for higher throughput
+            batch_timeout_ms=50
+        )
+        
+        # Reconnection Manager
+        self.reconnect_manager = ReconnectManager(
+            ReconnectConfig(
+                base_delay_seconds=2.0,
+                max_delay_seconds=300.0,
+                strategy=BackoffStrategy.EXPONENTIAL,
+                add_jitter=True,
+                max_attempts=Config.MAX_RECONNECT_ATTEMPTS or 20
+            )
+        )
         
         # WebSocket instance
         self.sws = None
         self.is_connected = False
-        self.reconnect_attempts = 0
         
         # Correlation ID for subscriptions
         self.correlation_id = "paper_trading_feed"
@@ -66,9 +79,10 @@ class MarketDataWebSocket:
         """Callback when WebSocket connection opens."""
         logger.info("✅ WebSocket connection established")
         self.is_connected = True
-        self.reconnect_attempts = 0
+        self.reconnect_manager.on_success()
         
         # Subscribe to all configured tokens
+        # Note: In Phase 2, this will be dynamic
         token_list = get_token_list_for_subscription()
         logger.info(f"Subscribing to {len(TOKEN_TO_SYMBOL)} symbols")
         
@@ -81,29 +95,28 @@ class MarketDataWebSocket:
     def _on_data(self, wsapp, message):
         """
         Callback when tick data is received.
-        Parses the binary message and publishes to Redis.
+        Parses the binary message and queues for publishing.
         """
         try:
             # Message is already parsed by SmartWebSocketV2
             if isinstance(message, dict):
-                tick_data = self._parse_tick(message)
-                if tick_data:
-                    self._publish_to_redis(tick_data)
+                tick = self._parse_tick(message)
+                if tick:
+                    # Queue for async publishing (NON-BLOCKING)
+                    # Convert Pydantic model to dict
+                    tick_dict = tick.to_dict()
+                    success = self.publisher.queue_tick(tick_dict)
+                    if not success:
+                        logger.warning("⚠️ Tick queue full - dropping tick!")
             else:
                 logger.warning(f"Unexpected message format: {type(message)}")
                 
         except Exception as e:
             logger.exception(f"Error processing tick data: {e}")
     
-    def _parse_tick(self, message: dict) -> dict | None:
+    def _parse_tick(self, message: dict) -> TickData | None:
         """
-        Parse tick message into standard format.
-        
-        Args:
-            message: Raw tick message from WebSocket
-            
-        Returns:
-            Standardized tick data dict or None if parsing fails
+        Parse tick message into standard format using Pydantic.
         """
         try:
             # Extract token and get symbol
@@ -111,52 +124,58 @@ class MarketDataWebSocket:
             symbol = get_symbol_from_token(token)
             
             if not symbol:
-                # Unknown token, skip
+                # Unknown token
                 return None
             
-            # Extract price data
-            ltp = message.get('last_traded_price', 0) / 100  # Price comes in paise
+            # Map Angel One format to our input format for Pydantic
+            # Angel format: {'token': '...', 'last_traded_price': 250000, 'close_price': ...}
+            # Note: Prices are in paise (sometimes), but let's verify.
+            # In original code: ltp = message.get('last_traded_price', 0) / 100
             
-            # Calculate change percentage if available
+            # We need to normalize data BEFORE creating TickData, or TickData.from_angel_tick needs to handle it.
+            # Our TickData.from_angel_tick assumed a slightly different format (generic).
+            # Let's create the dict explicitly here to match our logic.
+            
+            ltp = message.get('last_traded_price', 0) / 100
             close_price = message.get('close_price', 0) / 100
             change_percent = 0
             if close_price > 0:
                 change_percent = round(((ltp - close_price) / close_price) * 100, 2)
-            
-            # Build standardized tick
-            tick = {
+                
+            # Construct standard dict for model
+            tick_dict = {
                 'symbol': symbol,
-                'price': round(ltp, 2),
-                'change': change_percent,
-                'timestamp': datetime.now().isoformat(),
+                'ltp': round(ltp, 2),
+                'timestamp': int(datetime.now().timestamp() * 1000), # Current time in ms
                 'volume': message.get('volume_traded_today', 0),
                 'open': message.get('open_price', 0) / 100,
                 'high': message.get('high_price', 0) / 100,
                 'low': message.get('low_price', 0) / 100,
                 'close': close_price,
+                'change': change_percent,
                 'source': 'live'
             }
             
-            return tick
+            # Additional fields if available
+            if 'best_5_buy_data' in message:
+                # Extract bid/ask from depth if needed
+                pass
+
+            # Validate with Pydantic
+            return TickData(**tick_dict)
             
+        except ValidationError as e:
+            logger.error(f"❌ Tick validation failed: {e}")
+            return None
         except Exception as e:
             logger.exception(f"Failed to parse tick: {e}")
             return None
-    
-    def _publish_to_redis(self, tick: dict):
-        """Publish tick data to Redis channel."""
-        try:
-            self.redis_client.publish(
-                Config.MARKET_TICKS_CHANNEL,
-                json.dumps(tick)
-            )
-        except Exception as e:
-            logger.exception(f"Failed to publish to Redis: {e}")
     
     def _on_error(self, wsapp, error):
         """Callback when WebSocket error occurs."""
         logger.error(f"WebSocket error: {error}")
         self.is_connected = False
+        self.reconnect_manager.on_failure(str(error))
     
     def _on_close(self, wsapp):
         """Callback when WebSocket connection closes."""
@@ -164,15 +183,21 @@ class MarketDataWebSocket:
         self.is_connected = False
         
         # Attempt reconnection
-        if self.reconnect_attempts < Config.MAX_RECONNECT_ATTEMPTS:
-            self.reconnect_attempts += 1
-            logger.info(f"Attempting reconnection ({self.reconnect_attempts}/{Config.MAX_RECONNECT_ATTEMPTS})...")
-            time.sleep(Config.RECONNECT_DELAY)
+        if self.reconnect_manager.should_retry():
+            wait_time = self.reconnect_manager.get_wait_time()
+            logger.info(f"Attempting reconnection in {wait_time:.1f}s...")
+            time.sleep(wait_time)
             self.connect()
-    
+        else:
+             logger.critical("❌ exhausted reconnection attempts. Giving up.")
+
     def connect(self):
         """Establish WebSocket connection and start receiving data."""
         try:
+            # Start publisher first
+            if not self.publisher.running:
+                self.publisher.start()
+                
             self.sws = SmartWebSocketV2(
                 self.auth_token,
                 self.api_key,
@@ -191,8 +216,16 @@ class MarketDataWebSocket:
             
         except Exception as e:
             logger.exception(f"Failed to connect WebSocket: {e}")
-            raise
-    
+            self.reconnect_manager.on_failure(str(e))
+            # Retry if initial connection fails
+            if self.reconnect_manager.should_retry():
+                 wait_time = self.reconnect_manager.get_wait_time()
+                 logger.info(f"Retrying initial connection in {wait_time:.1f}s...")
+                 time.sleep(wait_time)
+                 self.connect()
+            else:
+                 raise
+
     def disconnect(self):
         """Close WebSocket connection gracefully."""
         if self.sws and self.is_connected:
@@ -202,14 +235,5 @@ class MarketDataWebSocket:
             except Exception as e:
                 logger.exception(f"Error disconnecting: {e}")
         
-        if self.redis_client:
-            self.redis_client.close()
-
-
-# Test mode
-if __name__ == '__main__':
-    print("=" * 50)
-    print("WebSocket Handler Test Mode")
-    print("=" * 50)
-    print("This requires valid auth tokens from AngelOneClient.login()")
-    print("Run the main market_simulator.py with --mode=live instead.")
+        # Stop publisher
+        self.publisher.stop()

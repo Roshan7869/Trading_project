@@ -3,6 +3,7 @@ import { paperTradingEngine } from '../services/PaperTradingEngine';
 import { orderService } from '../services/OrderService';
 import Order from '../models/Order';
 import Account from '../models/Account';
+import { assertAccountOwnership } from '../utils/assertOwnership';
 
 export class OrderController {
 
@@ -38,7 +39,15 @@ export class OrderController {
      */
     async placeOrder(req: Request, res: Response) {
         try {
+            // @ts-ignore
+            const userId = (req as any).userId;
             const orderData = req.body;
+
+            // Verify ownership of the account
+            if (orderData.accountId) {
+                await assertAccountOwnership(userId, orderData.accountId);
+            }
+
             // Ensure accountId is passed in body
             const order = await paperTradingEngine.placeOrder(orderData);
             res.status(201).json(order);
@@ -60,6 +69,9 @@ export class OrderController {
                     return res.json({ orders: [] });
                 }
                 accountId = account._id.toString();
+            } else {
+                // Verify ownership
+                await assertAccountOwnership(userId, accountId as string);
             }
 
             const orders = await Order.find({ accountId }).sort({ createdAt: -1 });

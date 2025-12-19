@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI, userAPI } from '@/lib/api';
+import { userAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useUser, useAuth as useClerkAuth } from '@clerk/nextjs';
 
 interface User {
     id: string;
@@ -24,54 +25,66 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [profileLoading, setProfileLoading] = useState(true);
+    const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
+    const { signOut } = useClerkAuth();
     const router = useRouter();
 
     useEffect(() => {
-        checkAuth();
-    }, []);
-
-    const checkAuth = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (token) {
-                const response = await userAPI.getProfile();
-                setUser(response.data);
+        if (isClerkLoaded) {
+            if (clerkUser) {
+                // User is signed in with Clerk, fetch backend profile
+                fetchBackendProfile();
+            } else {
+                // User is not signed in
+                setUser(null);
+                setProfileLoading(false);
             }
+        }
+    }, [isClerkLoaded, clerkUser]);
+
+    const fetchBackendProfile = async () => {
+        try {
+            setProfileLoading(true);
+            const response = await userAPI.getProfile();
+            setUser(response.data);
         } catch (error) {
-            console.error('Auth check failed:', error);
-            localStorage.removeItem('token');
+            console.error('Failed to fetch user profile:', error);
+            // Don't auto-logout here as it might be a temporary backend issue
+            // But if it's 401, Clerk middleware should handle it
         } finally {
-            setLoading(false);
+            setProfileLoading(false);
         }
     };
 
-    const login = async (email: string, password: string) => {
-        const response = await authAPI.login({ email, password });
-        localStorage.setItem('token', response.data.token);
-        setUser(response.data.user);
-        router.push('/dashboard');
+    // Deprecated methods that just redirect or warn
+    const login = async () => {
+        router.push('/login');
     };
 
-    const register = async (name: string, email: string, password: string) => {
-        const response = await authAPI.register({ name, email, password });
-        localStorage.setItem('token', response.data.token);
-        setUser(response.data.user);
-        router.push('/dashboard');
+    const register = async () => {
+        router.push('/register');
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
+    const logout = async () => {
+        await signOut();
         setUser(null);
         router.push('/login');
     };
 
     const refreshUser = async () => {
-        await checkAuth();
+        await fetchBackendProfile();
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+        <AuthContext.Provider value={{
+            user,
+            loading: !isClerkLoaded || profileLoading,
+            login,
+            register,
+            logout,
+            refreshUser
+        }}>
             {children}
         </AuthContext.Provider>
     );

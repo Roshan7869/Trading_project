@@ -6,6 +6,8 @@ import { useMarket } from '@/context/MarketContext';
 import { portfolioAPI, orderAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { UserButton } from '@clerk/nextjs';
+import OrderConfirmationModal from '@/components/OrderConfirmationModal';
 
 interface Position {
   _id: string;
@@ -42,23 +44,32 @@ export default function DashboardPage() {
   const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY');
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderMessage, setOrderMessage] = useState('');
+  const [orderModal, setOrderModal] = useState<{
+    open: boolean;
+    symbol?: string;
+    action?: 'BUY' | 'SELL';
+    quantity?: number;
+    price?: number;
+  }>({ open: false });
 
   // TEST MODE: Set to true to bypass authentication for testing
-  const TEST_MODE = true;
+  // Constants
+  const TEST_MODE = false; // REMOVED: TEST_MODE flag for security
+
 
   // Stock list
-  const STOCKS = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'ITC', 'SBIN', 'BHARTIARTL', 'HINDUNILVR', 'LT'];
+  // Stock list
+  import { getStockSymbols } from '@/lib/constants';
+  const STOCKS = getStockSymbols();
 
   useEffect(() => {
-    // Skip auth redirect in TEST_MODE
-    if (!TEST_MODE && !authLoading && !user) {
+    if (!authLoading && !user) {
       router.push('/login');
     }
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    // In TEST_MODE, always fetch portfolio
-    if (TEST_MODE || user) {
+    if (user) {
       fetchPortfolio();
     }
   }, [user]);
@@ -66,7 +77,7 @@ export default function DashboardPage() {
   // Refresh portfolio periodically
   useEffect(() => {
     const interval = setInterval(() => {
-      if (TEST_MODE || user) {
+      if (user) {
         fetchPortfolio();
       }
     }, 10000); // Every 10 seconds
@@ -85,20 +96,35 @@ export default function DashboardPage() {
     }
   };
 
-  const handleQuickTrade = async () => {
+  const handleQuickTrade = () => {
     if (!selectedStock || quantity <= 0) {
       setOrderMessage('Please select a stock and enter valid quantity');
       return;
     }
 
+    const stockData = marketData.get(selectedStock);
+    const estimatedPrice = stockData ? stockData.price : 0;
+
+    // Open confirmation modal
+    setOrderModal({
+      open: true,
+      symbol: selectedStock,
+      action: orderType,
+      quantity: quantity,
+      price: estimatedPrice
+    });
+  };
+
+  const handleConfirmOrder = async () => {
     setOrderLoading(true);
     setOrderMessage('');
+    setOrderModal({ ...orderModal, open: false }); // Close modal immediately
 
     try {
       const response = await orderAPI.placeOrder({
-        symbol: selectedStock,
-        type: orderType,
-        quantity: quantity
+        symbol: orderModal.symbol!,
+        type: orderModal.action!,
+        quantity: orderModal.quantity!
       });
 
       if (response.data.success) {
@@ -115,8 +141,8 @@ export default function DashboardPage() {
     }
   };
 
-  // In TEST_MODE, skip auth check and show dashboard directly
-  if (!TEST_MODE && (authLoading || !user)) {
+  // Loading State
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
@@ -139,21 +165,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Paper Trading</h1>
-          <div className="flex items-center gap-4">
-            <span className={`flex items-center gap-1 text-sm ${connected ? 'text-emerald-600' : 'text-red-500'}`}>
-              <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-              {connected ? 'Live' : 'Disconnected'}
-            </span>
-            <span className="text-gray-600">Welcome, {user?.name || 'Test User'}</span>
-            <Link href="/orders" className="text-emerald-600 hover:text-emerald-700">Orders</Link>
-            <Link href="/watchlist" className="text-emerald-600 hover:text-emerald-700">Watchlist</Link>
-          </div>
-        </div>
-      </header>
+      {/* Header removed to use global Layout Header */}
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Summary Cards */}
@@ -362,6 +374,17 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      <OrderConfirmationModal
+        isOpen={orderModal.open}
+        onClose={() => setOrderModal({ ...orderModal, open: false })}
+        onConfirm={handleConfirmOrder}
+        symbol={orderModal.symbol!}
+        side={orderModal.action!}
+        quantity={orderModal.quantity!}
+        price={orderModal.price!}
+        totalAmount={(orderModal.quantity || 0) * (orderModal.price || 0)}
+      />
     </div>
   );
 }

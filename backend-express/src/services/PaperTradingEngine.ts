@@ -4,8 +4,15 @@ import Trade from '../models/Trade';
 import { positionService } from './PositionService';
 import { accountService } from './AccountService';
 import { marketDataService } from './MarketDataService';
+import Decimal from 'decimal.js';
+import mongoose from 'mongoose';
 
 export class PaperTradingEngine {
+    private io: any;
+
+    public setSocket(io: any) {
+        this.io = io;
+    }
 
     /**
      * Place an Order
@@ -25,31 +32,40 @@ export class PaperTradingEngine {
             if (marketTick) {
                 currentPrice = marketTick.price;
             } else {
-                // If no tick in cache, use a default but log it
-                console.warn(`No market data found for ${orderData.symbolName}, using placeholder`);
-                currentPrice = 1000;
+                // FAIL SAFE: Never execute market orders without live data
+                throw new Error(`Market data unavailable for ${orderData.symbolName}. Cannot execute MARKET order.`);
             }
         } else if (!currentPrice) {
-            currentPrice = 1000;
+            throw new Error('Price is required for execution');
         }
 
-        const requiredAmount = currentPrice * (orderData.quantity || 0);
+        const quantity = new Decimal(orderData.quantity || 0);
+        const price = new Decimal(currentPrice);
+        const requiredAmount = price.times(quantity);
 
-        if (orderData.transactionType === 'BUY' && account.availableMargin < requiredAmount) {
-            throw new Error(`Insufficient funds. Required: ${requiredAmount}, Available: ${account.availableMargin}`);
+        // Use Decimal for comparison
+        if (orderData.transactionType === 'BUY') {
+            const availableMargin = new Decimal(account.availableMargin);
+            if (availableMargin.lessThan(requiredAmount)) {
+                throw new Error(`Insufficient funds. Required: ${requiredAmount.toFixed(2)}, Available: ${availableMargin.toFixed(2)}`);
+            }
         }
 
         // 3. Create Order Record
         const newOrder = new Order({
             ...orderData,
             status: 'PENDING',
-            orderId: `ORD${Date.now()}`, // Simple ID generation
+            orderId: `ORD${Date.now()}`,
             executionDetails: {
                 executedQuantity: 0
             }
         });
 
         await newOrder.save();
+
+        if (this.io) {
+            this.io.emit('order:updated', newOrder);
+        }
 
         // 4. Try Execution (Simulate immediate execution for Market orders)
         if (orderData.orderType === 'MARKET') {
@@ -73,57 +89,84 @@ export class PaperTradingEngine {
      * Execute Order (Internal)
      */
     async executeOrder(order: IOrder, executionPrice: number) {
-        // 1. Update Order Status
-        order.status = 'EXECUTED';
-        order.executionDetails = {
-            executedQuantity: order.quantity,
-            executedPrice: executionPrice,
-            executedAt: new Date(),
-            averagePrice: executionPrice,
-            remainingQuantity: 0
-        };
-        await order.save();
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-        // 2. Create Trade Record
-        const trade = new Trade({
-            accountId: order.accountId,
-            tradeId: `TRD${Date.now()}`,
-            orderId: order._id,
-            scriptToken: order.scriptToken,
-            symbolName: order.symbolName,
-            exchange: order.exchange,
-            quantity: order.quantity,
-            transactionType: order.transactionType,
-            executionPrice: executionPrice,
-            executedAt: new Date(),
-            grossValue: order.quantity * executionPrice,
-            charges: { // Mock charges
-                brokerage: 20,
-                stt: 0,
-                total: 20
-            },
-            netValue: (order.quantity * executionPrice) + 20 // + or - depending on buy/sell
-        });
-        await trade.save();
+        try {
+            // 1. Update Order Status
+            order.status = 'EXECUTED';
+            order.executionDetails = {
+                executedQuantity: order.quantity,
+                executedPrice: executionPrice,
+                executedAt: new Date(),
+                averagePrice: executionPrice,
+                remainingQuantity: 0
+            };
+            await order.save({ session });
 
-        // 3. Update Position
-        await positionService.updatePosition(
-            order.accountId.toString(),
-            order.scriptToken,
-            order.symbolName || '',
-            order.exchange || 'NSE',
-            order.transactionType,
-            order.quantity,
-            executionPrice,
-            trade._id.toString()
-        );
+            const qty = new Decimal(order.quantity);
+            const price = new Decimal(executionPrice);
+            const grossValue = qty.times(price);
+            const brokerage = new Decimal(20); // Mock brokerage
+            const netValue = grossValue.plus(brokerage); // Simplified for calculation display
 
-        // 4. Update Account Balance
-        const totalValue = order.quantity * executionPrice;
-        if (order.transactionType === 'BUY') {
-            await accountService.updateBalance(order.accountId.toString(), totalValue, 'DEBIT');
-        } else {
-            await accountService.updateBalance(order.accountId.toString(), totalValue, 'CREDIT');
+            // 2. Create Trade Record
+            const trade = new Trade({
+                accountId: order.accountId,
+                tradeId: `TRD${Date.now()}`,
+                orderId: order._id,
+                scriptToken: order.scriptToken,
+                symbolName: order.symbolName,
+                exchange: order.exchange,
+                quantity: order.quantity,
+                transactionType: order.transactionType,
+                executionPrice: executionPrice,
+                executedAt: new Date(),
+                grossValue: grossValue.toNumber(),
+                charges: {
+                    brokerage: 20,
+                    stt: 0,
+                    total: 20
+                },
+                netValue: netValue.toNumber()
+            });
+            await trade.save({ session });
+
+            // 3. Update Position
+            await positionService.updatePosition(
+                order.accountId.toString(),
+                order.scriptToken,
+                order.symbolName || '',
+                order.exchange || 'NSE',
+                order.transactionType,
+                order.quantity,
+                executionPrice,
+                trade._id.toString(),
+                session
+            );
+
+            // 4. Update Account Balance
+            const totalValue = grossValue.toNumber();
+            if (order.transactionType === 'BUY') {
+                await accountService.updateBalance(order.accountId.toString(), totalValue, 'DEBIT', session);
+            } else {
+                await accountService.updateBalance(order.accountId.toString(), totalValue, 'CREDIT', session);
+            }
+
+            await session.commitTransaction();
+
+            // 5. Emit Event (outside transaction)
+            if (this.io) {
+                this.io.emit('order:updated', order);
+                this.io.emit('trade:executed', trade);
+            }
+
+        } catch (error) {
+            await session.abortTransaction();
+            console.error('Transaction aborted:', error);
+            throw error;
+        } finally {
+            session.endSession();
         }
     }
 
@@ -151,7 +194,6 @@ export class PaperTradingEngine {
                         shouldExecute = true;
                     }
                 }
-                // Add logic for STOP_LOSS / STOP_LIMIT if needed here
 
                 if (shouldExecute) {
                     console.log(`⚡ Executing Pending Order ${order.orderId} for ${symbolName} @ ${currentPrice}`);

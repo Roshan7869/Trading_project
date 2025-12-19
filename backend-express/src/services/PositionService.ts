@@ -1,5 +1,7 @@
 import Position, { IPosition } from '../models/Position';
 import { Types } from 'mongoose';
+import { assertAccountOwnership } from '../utils/assertOwnership';
+import mongoose from 'mongoose';
 
 export class PositionService {
 
@@ -14,7 +16,8 @@ export class PositionService {
         transactionType: 'BUY' | 'SELL',
         quantity: number,
         executionPrice: number,
-        tradeId: string
+        tradeId: string,
+        session?: mongoose.ClientSession
     ): Promise<void> {
 
         // Find existing open position
@@ -113,9 +116,10 @@ export class PositionService {
     }
 
     /**
-     * Get Open Positions
+     * Get Open Positions with ownership check
      */
-    async getOpenPositions(accountId: string): Promise<IPosition[]> {
+    async getOpenPositions(userId: string, accountId: string): Promise<IPosition[]> {
+        await assertAccountOwnership(userId, accountId);
         return Position.find({ accountId, status: 'OPEN' });
     }
 }

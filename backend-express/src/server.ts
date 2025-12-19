@@ -2,6 +2,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
@@ -17,8 +19,13 @@ import orderRoutes from './routes/order';
 import portfolioRoutes from './routes/portfolio';
 import watchlistRoutes from './routes/watchlist';
 import accountRoutes from './routes/accounts';
+import settingsRoutes from './routes/settings';
 import { marketDataService } from './services/MarketDataService';
 import { paperTradingEngine } from './services/PaperTradingEngine';
+import { globalErrorHandler } from './middleware/errorHandler';
+import { AppError } from './utils/AppError';
+import { StatusCodes } from 'http-status-codes';
+import logger from './utils/logger';
 
 dotenv.config();
 
@@ -31,15 +38,30 @@ const io = new Server(httpServer, {
     }
 });
 
+// Inject socket into trading engine
+paperTradingEngine.setSocket(io);
+
+
 const PORT = process.env.PORT || 4000;
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/paper_trading';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // Middleware
+app.use(helmet()); // Security Headers
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
 }));
 app.use(express.json());
+
+// Rate Limiter
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+app.use('/api', limiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -48,28 +70,77 @@ app.use('/api/order', orderRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/accounts', accountRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'paper-trading-backend' });
+app.get('/api/health', async (req, res) => {
+    const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    const redisStatus = redisSubscriber.isOpen ? 'connected' : 'disconnected';
+    const isHealthy = mongoStatus === 'connected';
+
+    res.status(isHealthy ? 200 : 503).json({
+        status: isHealthy ? 'ok' : 'degraded',
+        service: 'paper-trading-backend',
+        dependencies: { mongo: mongoStatus, redis: redisStatus },
+        timestamp: new Date().toISOString()
+    });
 });
+
+// API endpoint to get current market prices
+app.get('/api/market/prices', (req, res) => {
+    const prices = marketDataService.getAllPrices();
+    res.json({ prices });
+});
+
+app.get('/api/market/price/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const price = marketDataService.getPrice(symbol);
+
+    if (!price) {
+        return res.status(404).json({ error: 'Symbol not found' });
+    }
+
+    res.json(price);
+});
+
+// API endpoint to get historical OHLC candles
+app.get('/api/market/history/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const limit = parseInt(req.query.limit as string) || 100;
+
+    const candles = marketDataService.getCandles(symbol, limit);
+
+    if (candles.length === 0) {
+        return res.status(404).json({ error: 'No candle data available for symbol' });
+    }
+
+    res.json({ symbol, timeframe: '1m', candles });
+});
+
+// 404 Handler for undefined routes
+app.all('*', (req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, StatusCodes.NOT_FOUND));
+});
+
+// Global Error Handler
+app.use(globalErrorHandler);
 
 // MongoDB connection
 mongoose.connect(MONGO_URL)
     .then(async () => {
-        console.log('✅ MongoDB connected');
+        logger.info('✅ MongoDB connected');
 
         // Seed test data for TEST_MODE
         const { seedTestData } = await import('./utils/testSeeder');
         await seedTestData();
     })
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+    .catch(err => logger.error(`❌ MongoDB connection error: ${err}`));
 
 // Redis Setup for Market Data
 const redisSubscriber = createClient({ url: REDIS_URL });
 
 redisSubscriber.on('error', (err) => {
-    console.error('Redis Client Error:', err.message);
+    logger.error(`Redis Client Error: ${err.message}`);
 });
 
 // Mock market data for testing when Redis is unavailable
@@ -80,7 +151,7 @@ const MOCK_STOCKS = {
 };
 
 function startMockMarketData() {
-    console.log('📊 Starting MOCK market data (Redis unavailable)');
+    logger.warn('📊 Starting MOCK market data (Redis unavailable)');
 
     // Initialize with base prices
     Object.entries(MOCK_STOCKS).forEach(([symbol, price]) => {
@@ -126,7 +197,7 @@ const connectRedis = async () => {
             timeoutPromise
         ]);
 
-        console.log('✅ Redis subscriber connected');
+        logger.info('✅ Redis subscriber connected');
 
         await redisSubscriber.subscribe('market_ticks', (message) => {
             try {
@@ -137,11 +208,11 @@ const connectRedis = async () => {
                 paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
                 io.emit('market_update', marketData);
             } catch (error) {
-                console.error('Error parsing market data:', error);
+                logger.error(`Error parsing market data: ${error}`);
             }
         });
     } catch (err: any) {
-        console.warn('⚠️ Redis connection failed/timed out, switching to MOCK data:', err.message);
+        logger.warn(`⚠️ Redis connection failed/timed out, switching to MOCK data: ${err.message}`);
         // If connection failed, ensure we're disconnected to stop retries if client is active
         if (redisSubscriber.isOpen) {
             await redisSubscriber.disconnect();
@@ -155,46 +226,30 @@ connectRedis();
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-    console.log('🔌 Client connected:', socket.id);
+    logger.info(`🔌 Client connected: ${socket.id}`);
 
     // Send current market data cache to new client
     socket.emit('initial_market_data', marketDataService.getAllPrices());
 
     socket.on('disconnect', () => {
-        console.log('🔌 Client disconnected:', socket.id);
+        logger.info(`🔌 Client disconnected: ${socket.id}`);
     });
-});
-
-// API endpoint to get current market prices
-app.get('/api/market/prices', (req, res) => {
-    const prices = marketDataService.getAllPrices();
-    res.json({ prices });
-});
-
-app.get('/api/market/price/:symbol', (req, res) => {
-    const { symbol } = req.params;
-    const price = marketDataService.getPrice(symbol);
-
-    if (!price) {
-        return res.status(404).json({ error: 'Symbol not found' });
-    }
-
-    res.json(price);
 });
 
 // Start server
 httpServer.listen(PORT, () => {
-    console.log(`🚀 Express server running on port ${PORT}`);
-    console.log(`📡 Socket.io server ready`);
+    logger.info(`🚀 Express server running on port ${PORT}`);
+    logger.info(`📡 Socket.io server ready`);
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-    console.log('\n🛑 Shutting down gracefully...');
+    logger.info('\n🛑 Shutting down gracefully...');
     await mongoose.connection.close();
     await redisSubscriber.quit();
     httpServer.close(() => {
-        console.log('Server closed');
+        logger.info('Server closed');
         process.exit(0);
     });
 });
+

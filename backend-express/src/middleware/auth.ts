@@ -3,9 +3,14 @@ import { clerkClient } from '@clerk/clerk-sdk-node';
 import User from '../models/User';
 import { accountService } from '../services/AccountService';
 
-// TEST MODE: Set to true to bypass authentication for testing
+// TEST MODE: Only use in development for local testing without Clerk
 const TEST_MODE = process.env.TEST_MODE === 'true';
 const TEST_USER_ID = '000000000000000000000001';
+
+// CRITICAL: Block TEST_MODE in production
+if (TEST_MODE && process.env.NODE_ENV === 'production') {
+    throw new Error('SECURITY ERROR: TEST_MODE cannot be enabled in production!');
+}
 
 export interface AuthRequest extends Request {
     userId?: string;
@@ -14,10 +19,9 @@ export interface AuthRequest extends Request {
 }
 
 export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
-    // 1. TEST MODE BYPASS
+    // 1. TEST MODE BYPASS (Development Only)
     if (TEST_MODE) {
-        // ... (Test Mode Logic preserved, but maybe use Demo User now?)
-        // Let's keep using the seeded test user for now if configured
+        console.warn('⚠️ AUTH: Running in TEST_MODE - Authentication bypassed!');
         const testUserId = process.env.TEST_USER_MONGO_ID || TEST_USER_ID;
         req.userId = testUserId;
         req.user = { id: testUserId, email: 'test@example.com' };

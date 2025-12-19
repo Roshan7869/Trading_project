@@ -7,6 +7,9 @@ import { orderAPI, portfolioAPI } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import CandlestickChart from '@/components/charts/CandlestickChart'
+import OrderConfirmationModal from '@/components/OrderConfirmationModal'
+import { toast } from 'sonner'
 
 export default function StockDetailPage({ params }: { params: Promise<{ symbol: string }> }) {
     const unwrappedParams = use(params)
@@ -17,9 +20,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
 
     const [orderType, setOrderType] = useState<'BUY' | 'SELL'>('BUY')
     const [quantity, setQuantity] = useState(1)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState('')
-    const [success, setSuccess] = useState('')
+    const [confirmationOpen, setConfirmationOpen] = useState(false)
     const [holdings, setHoldings] = useState(0)
 
     const stockData = marketData.get(symbol)
@@ -40,27 +41,30 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
         }
     }
 
-    const handlePlaceOrder = async () => {
-        setError('')
-        setSuccess('')
-        setLoading(true)
+    const handleInitialSubmit = () => {
+        const totalAmount = price * quantity
 
+        if (!price) {
+            toast.error('Waiting for market price...')
+            return
+        }
+
+        // Validate logic
+        if (orderType === 'BUY' && user && user.walletBalance < totalAmount) {
+            toast.error('Insufficient wallet balance')
+            return
+        }
+
+        if (orderType === 'SELL' && holdings < quantity) {
+            toast.error('Insufficient holdings to sell')
+            return
+        }
+
+        setConfirmationOpen(true)
+    }
+
+    const executeOrder = async () => {
         try {
-            const totalAmount = price * quantity
-
-            // Validate
-            if (orderType === 'BUY' && user && user.walletBalance < totalAmount) {
-                setError('Insufficient wallet balance')
-                setLoading(false)
-                return
-            }
-
-            if (orderType === 'SELL' && holdings < quantity) {
-                setError('Insufficient holdings to sell')
-                setLoading(false)
-                return
-            }
-
             await orderAPI.placeOrder({
                 symbol,
                 type: orderType,
@@ -68,19 +72,16 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                 price,
             })
 
-            setSuccess(`${orderType} order placed successfully!`)
+            toast.success(`${orderType} order placed successfully!`)
             await refreshUser()
             await fetchHoldings()
 
-            // Reset form
-            setTimeout(() => {
-                setQuantity(1)
-                setSuccess('')
-            }, 2000)
+            // Reset quantity after success
+            setQuantity(1)
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Order failed')
-        } finally {
-            setLoading(false)
+            const message = err.response?.data?.error || err.response?.data?.message || 'Order failed'
+            toast.error(message)
+            throw new Error(message) // Re-throw for modal to handle if needed
         }
     }
 
@@ -99,7 +100,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
             <div className="grid lg:grid-cols-3 gap-8">
                 {/* Stock Info */}
                 <div className="lg:col-span-2">
-                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h1 className="text-4xl font-bold text-gray-900">{symbol}</h1>
@@ -133,9 +134,14 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                             </div>
                         </div>
 
+                        {/* Real-Time Chart */}
+                        <div className="mb-6">
+                            <CandlestickChart symbol={symbol} height={350} />
+                        </div>
+
                         {/* Holdings Info */}
                         {holdings > 0 && (
-                            <div className="bg-secondary p-6 rounded-xl">
+                            <div className="bg-secondary p-6 rounded-xl border border-gray-200">
                                 <p className="text-gray-600 mb-2">Your Holdings</p>
                                 <p className="text-2xl font-bold text-gray-900">
                                     {holdings} shares
@@ -150,7 +156,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
 
                 {/* Order Form */}
                 <div className="lg:col-span-1">
-                    <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Place Order</h2>
 
                         {/* Order Type Toggle */}
@@ -158,8 +164,8 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                             <button
                                 onClick={() => setOrderType('BUY')}
                                 className={`flex-1 py-3 rounded-xl font-semibold transition ${orderType === 'BUY'
-                                    ? 'bg-primary text-white'
-                                    : 'bg-secondary text-gray-700 hover:bg-gray-300'
+                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                    : 'bg-secondary text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 BUY
@@ -167,8 +173,8 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                             <button
                                 onClick={() => setOrderType('SELL')}
                                 className={`flex-1 py-3 rounded-xl font-semibold transition ${orderType === 'SELL'
-                                    ? 'bg-danger text-white'
-                                    : 'bg-secondary text-gray-700 hover:bg-gray-300'
+                                    ? 'bg-danger text-white shadow-lg shadow-danger/30'
+                                    : 'bg-secondary text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 SELL
@@ -185,7 +191,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                                 value={quantity}
                                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                                 min="1"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
                             />
                         </div>
 
@@ -202,45 +208,44 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                         </div>
 
                         {/* Total Amount */}
-                        <div className="mb-6 p-4 bg-secondary rounded-xl">
+                        <div className="mb-6 p-4 bg-secondary rounded-xl border border-gray-200">
                             <p className="text-gray-600 mb-1">Total Amount</p>
                             <p className="text-2xl font-bold text-gray-900">
                                 ₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </p>
                         </div>
 
-                        {/* Alerts */}
-                        {error && (
-                            <div className="mb-4 bg-danger/10 border border-danger text-danger px-4 py-3 rounded-lg">
-                                {error}
-                            </div>
-                        )}
-
-                        {success && (
-                            <div className="mb-4 bg-primary/10 border border-primary text-primary px-4 py-3 rounded-lg">
-                                {success}
-                            </div>
-                        )}
-
                         {/* Place Order Button */}
                         <button
-                            onClick={handlePlaceOrder}
-                            disabled={loading || !price}
-                            className={`w-full py-4 rounded-full font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed ${orderType === 'BUY'
-                                ? 'bg-primary hover:bg-primary/90'
-                                : 'bg-danger hover:bg-danger/90'
+                            onClick={handleInitialSubmit}
+                            disabled={!price}
+                            className={`w-full py-4 rounded-full font-semibold text-white transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${orderType === 'BUY'
+                                ? 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25'
+                                : 'bg-danger hover:bg-danger/90 shadow-lg shadow-danger/25'
                                 }`}
                         >
-                            {loading ? 'Placing Order...' : `${orderType} ${quantity} Share${quantity > 1 ? 's' : ''}`}
+                            {orderType} {quantity} Share{quantity > 1 ? 's' : ''}
                         </button>
 
                         {/* Wallet Info */}
-                        <div className="mt-4 text-center text-sm text-gray-600">
+                        <div className="mt-4 text-center text-sm text-gray-500">
                             Available: ₹{(user?.walletBalance || 0).toLocaleString('en-IN')}
                         </div>
                     </div>
                 </div>
             </div>
+
+            <OrderConfirmationModal
+                isOpen={confirmationOpen}
+                onClose={() => setConfirmationOpen(false)}
+                onConfirm={executeOrder}
+                symbol={symbol}
+                side={orderType}
+                quantity={quantity}
+                price={price}
+                totalAmount={totalAmount}
+                holdings={holdings}
+            />
         </div>
     )
 }

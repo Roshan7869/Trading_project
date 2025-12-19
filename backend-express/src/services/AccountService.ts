@@ -1,5 +1,6 @@
 import Account, { IAccount } from '../models/Account';
 import { Types } from 'mongoose';
+import Decimal from 'decimal.js';
 
 export class AccountService {
 
@@ -57,51 +58,77 @@ export class AccountService {
     }
 
     /**
-     * Update account balance (internal use)
+     * Update account balance (Atomic)
      */
-    async updateBalance(accountId: string, amountChange: number, type: 'CREDIT' | 'DEBIT'): Promise<IAccount> {
-        const account = await Account.findById(accountId);
-        if (!account) {
-            throw new Error('Account not found');
-        }
+    async updateBalance(accountId: string, amountChange: number, type: 'CREDIT' | 'DEBIT', session?: any): Promise<IAccount> {
+        // Use Decimal to ensure precision before converting to JS number for Mongo
+        // Note: MongoDB stores doubles by default, so we still rely on JS number precision at storage level
+        // unless we switch to Decimal128. For now, we ensure the input delta is clean.
+
+        const delta = new Decimal(amountChange).toNumber();
 
         if (type === 'DEBIT') {
-            if (account.currentCash < amountChange) {
-                throw new Error('Insufficient funds');
-            }
-            account.currentCash -= amountChange;
-        } else {
-            account.currentCash += amountChange;
-        }
+            // Atomically check balance >= amount AND decrement
+            const account = await Account.findOneAndUpdate(
+                {
+                    _id: accountId,
+                    currentCash: { $gte: delta }
+                },
+                {
+                    $inc: {
+                        currentCash: -delta,
+                        availableMargin: -delta // Assuming availableMargin moves 1:1 with cash for simple debits
+                    }
+                },
+                { new: true, session }
+            );
 
-        account.availableMargin = account.currentCash; // Simplified margin logic for now
-        await account.save();
-        return account;
+            if (!account) {
+                // Determine if it was "Not Found" or "Insufficient Funds"
+                const exists = await Account.exists({ _id: accountId });
+                if (!exists) throw new Error('Account not found');
+                throw new Error('Insufficient funds for transaction');
+            }
+            return account;
+
+        } else {
+            const account = await Account.findOneAndUpdate(
+                { _id: accountId },
+                {
+                    $inc: {
+                        currentCash: delta,
+                        availableMargin: delta
+                    }
+                },
+                { new: true, session }
+            );
+
+            if (!account) throw new Error('Account not found');
+            return account;
+        }
     }
 
     /**
      * Update margin usage
      */
     async updateMargin(accountId: string, usedMargin: number, totalInvested: number): Promise<void> {
-        await Account.updateOne(
-            { _id: accountId },
-            {
-                $set: {
-                    usedMargin,
-                    totalInvested,
-                    availableMargin: { $subtract: ['$currentCash', usedMargin] } // This aggregation won't work in simple update, needs lookup or pre-cal
-                }
-            }
-        );
+        // We need to fetch current cash to calculate available margin correctly if we don't trust the delta
+        // Ideally this should also be atomic if possible, but calculating "available = cash - used" requires referencing "cash" field
+        // Aggregation pipeline updates (MongoDB 4.2+) allow referencing fields.
 
-        // Correct way with two steps or save()
-        const account = await Account.findById(accountId);
-        if (account) {
-            account.usedMargin = usedMargin;
-            account.totalInvested = totalInvested;
-            account.availableMargin = account.currentCash - usedMargin;
-            await account.save();
-        }
+        await Account.findOneAndUpdate(
+            { _id: accountId },
+            [
+                {
+                    $set: {
+                        usedMargin: usedMargin,
+                        totalInvested: totalInvested,
+                        // availableMargin = currentCash - usedMargin
+                        availableMargin: { $subtract: ['$currentCash', usedMargin] }
+                    }
+                }
+            ]
+        );
     }
 }
 

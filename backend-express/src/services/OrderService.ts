@@ -4,6 +4,7 @@
  */
 
 import { paperTradingEngine } from './PaperTradingEngine';
+import { assertAccountOwnership } from '../utils/assertOwnership';
 import { accountService } from './AccountService';
 import { marketDataService } from './MarketDataService';
 import { getTokenFromSymbol, getSymbolInfo, isValidSymbol } from '../utils/symbolMapper';
@@ -61,6 +62,10 @@ export class OrderService {
                 // Use first active account
                 account = accounts.find(a => a.status === 'ACTIVE') || accounts[0];
             }
+
+            // Verify ownership
+            await assertAccountOwnership(userId, account._id.toString());
+
         } catch (error: any) {
             return {
                 success: false,

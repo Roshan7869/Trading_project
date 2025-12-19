@@ -3,8 +3,21 @@ import bcrypt from 'bcryptjs';
 import User, { IUser } from '../models/User';
 import { accountService } from './AccountService';
 
+// JWT Secret with production enforcement
+const getJwtSecret = (): string => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error('CRITICAL: JWT_SECRET environment variable must be set in production!');
+        }
+        console.warn('⚠️ AUTH: Using insecure default JWT_SECRET in non-production environment');
+        return 'dev_secret_only_not_for_prod';
+    }
+    return secret;
+};
+
 export class AuthService {
-    private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key_change_in_prod';
+    private static readonly JWT_SECRET = getJwtSecret();
     private static readonly TOKEN_EXPIRY = '24h';
     private static readonly REFRESH_TOKEN_EXPIRY = '7d';
 

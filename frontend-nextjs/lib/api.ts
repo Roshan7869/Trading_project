@@ -11,16 +11,47 @@ export const api = axios.create({
     },
 })
 
-// Add token to requests
-api.interceptors.request.use((config) => {
-    if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('token')
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`
+// Helper function to safely get Clerk token with retry
+const getClerkToken = async (retries = 3, delay = 100): Promise<string | null> => {
+    for (let i = 0; i < retries; i++) {
+        if (typeof window !== 'undefined' && (window as any).Clerk?.session) {
+            try {
+                const token = await (window as any).Clerk.session.getToken();
+                if (token) return token;
+            } catch (e) {
+                console.warn('Failed to get Clerk token, retrying...', e);
+            }
+        }
+        // Wait before retry (exponential backoff)
+        if (i < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
         }
     }
-    return config
+    return null;
+};
+
+// Add token to requests with improved reliability
+api.interceptors.request.use(async (config) => {
+    const token = await getClerkToken();
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 })
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
+        return Promise.reject(error);
+    }
+)
 
 // Auth APIs
 export const authAPI = {
@@ -71,4 +102,13 @@ export const watchlistAPI = {
 export const marketAPI = {
     getPrices: () => api.get('/api/market/prices'),
     getPrice: (symbol: string) => api.get(`/api/market/price/${symbol}`),
+}
+
+// Settings APIs
+export const settingsAPI = {
+    getBrokers: () => api.get('/api/settings/brokers'),
+    getBrokerConfig: () => api.get('/api/settings/broker'),
+    saveBrokerConfig: (data: { broker: string;[key: string]: string }) =>
+        api.post('/api/settings/broker', data),
+    disconnectBroker: (broker: string) => api.delete(`/api/settings/broker/${broker}`),
 }

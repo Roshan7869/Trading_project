@@ -27,6 +27,7 @@ interface MarketContextType {
   positions: Position[];
   updatePositions: (positions: Position[]) => void;
   getPositionsWithLivePrices: () => Position[];
+  socket: Socket | null;
 }
 
 const MarketContext = createContext<MarketContextType>({} as MarketContextType);
@@ -128,7 +129,8 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       connected,
       positions,
       updatePositions,
-      getPositionsWithLivePrices
+      getPositionsWithLivePrices,
+      socket
     }}>
       {children}
     </MarketContext.Provider>
@@ -136,5 +138,3 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useMarket = () => useContext(MarketContext);
-
-
