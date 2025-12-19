@@ -22,6 +22,7 @@ import accountRoutes from './routes/accounts';
 import settingsRoutes from './routes/settings';
 import { marketDataService } from './services/MarketDataService';
 import { paperTradingEngine } from './services/PaperTradingEngine';
+import { cacheService } from './services/CacheService';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { AppError } from './utils/AppError';
 import { StatusCodes } from 'http-status-codes';
@@ -72,16 +73,23 @@ app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// Health check
+// Health check with cache metrics
 app.get('/api/health', async (req, res) => {
     const mongoStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     const redisStatus = redisSubscriber.isOpen ? 'connected' : 'disconnected';
+    const cacheHealth = await cacheService.isHealthy();
+    const cacheMetrics = cacheService.getMetrics();
     const isHealthy = mongoStatus === 'connected';
 
     res.status(isHealthy ? 200 : 503).json({
         status: isHealthy ? 'ok' : 'degraded',
         service: 'paper-trading-backend',
-        dependencies: { mongo: mongoStatus, redis: redisStatus },
+        dependencies: {
+            mongo: mongoStatus,
+            redis: redisStatus,
+            cache: cacheHealth ? 'connected' : 'disconnected'
+        },
+        cache: cacheMetrics,
         timestamp: new Date().toISOString()
     });
 });

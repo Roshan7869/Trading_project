@@ -4,6 +4,7 @@ import Trade from '../models/Trade';
 import { positionService } from './PositionService';
 import { accountService } from './AccountService';
 import { marketDataService } from './MarketDataService';
+import { cacheService } from './CacheService';
 import Decimal from 'decimal.js';
 import mongoose from 'mongoose';
 
@@ -155,7 +156,13 @@ export class PaperTradingEngine {
 
             await session.commitTransaction();
 
-            // 5. Emit Event (outside transaction)
+            // 5. Invalidate cache for this user's portfolio
+            const account = await Account.findById(order.accountId);
+            if (account && account.userId) {
+                await cacheService.invalidatePortfolio(account.userId.toString());
+            }
+
+            // 6. Emit Event (outside transaction)
             if (this.io) {
                 this.io.emit('order:updated', order);
                 this.io.emit('trade:executed', trade);

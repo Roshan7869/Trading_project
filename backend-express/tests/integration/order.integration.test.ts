@@ -38,9 +38,9 @@ describe('Order API Integration', () => {
 
     describe('POST /api/order/quick', () => {
         it('should call controller methods when valid', async () => {
-            vi.mocked(orderController.placeSimpleOrder).mockImplementation((req, res) => {
+            vi.mocked(orderController.placeSimpleOrder).mockImplementation(((req: any, res: any) => {
                 res.status(201).json({ success: true, message: 'Order created' });
-            } as any);
+            }) as any);
 
             const res = await request(app)
                 .post('/api/order/quick')
@@ -95,9 +95,9 @@ describe('Order API Integration', () => {
         });
 
         it('should pass validation with complete payload', async () => {
-            vi.mocked(orderController.placeOrder).mockImplementation((req, res) => {
+            vi.mocked(orderController.placeOrder).mockImplementation(((req: any, res: any) => {
                 res.status(201).json({ success: true });
-            } as any);
+            }) as any);
 
             const res = await request(app)
                 .post('/api/order/place')

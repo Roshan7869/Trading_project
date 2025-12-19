@@ -117,9 +117,24 @@ export default function SettingsPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                     <Settings className="h-8 w-8 text-emerald-600" />
-                    Settings
+                    Broker Configuration
                 </h1>
-                <p className="text-gray-600 mt-2">Configure your brokerage API to stream real market data</p>
+                <p className="text-gray-600 mt-2">Connect your brokerage account to stream live market data</p>
+            </div>
+
+            {/* Multi-User Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                        <p className="font-medium text-blue-800">Your credentials are securely encrypted</p>
+                        <p className="text-sm text-blue-600 mt-1">
+                            Each user can connect their own broker account. Your API keys are encrypted
+                            and stored separately from other users. The platform supports multiple brokers
+                            (Angel One, Zerodha, Kotak Neo) simultaneously.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             {/* Current Status */}

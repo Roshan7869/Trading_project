@@ -4,6 +4,7 @@ import Account from '../models/Account';
 import { authenticateToken } from '../middleware/auth';
 import { marketDataService } from '../services/MarketDataService';
 import { positionService } from '../services/PositionService';
+import { cacheService } from '../services/CacheService';
 import { IPosition } from '../models/Position';
 
 const router = express.Router();
@@ -27,11 +28,13 @@ router.get('/', authenticateToken, async (req: any, res) => {
             });
         }
 
-        // Get all open positions via service (enforces ownership)
-        const positions = await positionService.getOpenPositions(req.userId, account._id.toString());
+        // Use cache for portfolio data (positions are cached, P&L calculated fresh with live prices)
+        const positions = await cacheService.getPositions(req.userId, async () => {
+            return positionService.getOpenPositions(req.userId, account._id.toString());
+        });
 
-        // Calculate real-time P&L for each position
-        const positionsWithPnL = positions.map(position => {
+        // Calculate real-time P&L for each position (always fresh with live prices)
+        const positionsWithPnL = positions.map((position: any) => {
             const marketData = position.symbolName ? marketDataService.getPrice(position.symbolName) : undefined;
             const currentPrice = marketData?.price || position.currentPrice;
             const currentValue = Math.abs(position.quantity) * currentPrice;
@@ -57,7 +60,7 @@ router.get('/', authenticateToken, async (req: any, res) => {
         });
 
         // Calculate portfolio summary
-        const summary = positionsWithPnL.reduce((acc, pos) => ({
+        const summary = positionsWithPnL.reduce((acc: any, pos: any) => ({
             totalInvested: acc.totalInvested + pos.investedAmount,
             currentValue: acc.currentValue + pos.currentValue,
             totalPnL: acc.totalPnL + pos.unrealizedPnL,

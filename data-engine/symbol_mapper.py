@@ -111,3 +111,10 @@ def get_token_info(symbol: str) -> dict | None:
 def get_all_symbols() -> list[str]:
     """Get list of all tracked symbols."""
     return list(SYMBOL_TOKEN_MAP.keys())
+
+
+def get_token_from_symbol(symbol: str) -> str | None:
+    """Get token ID from symbol name."""
+    info = SYMBOL_TOKEN_MAP.get(symbol.upper())
+    return info['token'] if info else None
+

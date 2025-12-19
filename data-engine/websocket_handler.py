@@ -16,7 +16,8 @@ from config import Config
 from symbol_mapper import get_token_list_for_subscription, get_symbol_from_token, TOKEN_TO_SYMBOL
 from redis_worker import AsyncRedisPublisher
 from reconnect_strategy import ReconnectManager, ReconnectConfig, BackoffStrategy
-from models import TickData, ValidationError
+from models import TickData
+from pydantic import ValidationError
 
 
 class MarketDataWebSocket:

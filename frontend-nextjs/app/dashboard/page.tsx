@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
 import OrderConfirmationModal from '@/components/OrderConfirmationModal';
+import { getStockSymbols } from '@/lib/constants';
 
 interface Position {
   _id: string;
@@ -58,8 +59,6 @@ export default function DashboardPage() {
 
 
   // Stock list
-  // Stock list
-  import { getStockSymbols } from '@/lib/constants';
   const STOCKS = getStockSymbols();
 
   useEffect(() => {

@@ -1,18 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import mongoose from 'mongoose';
 
 // Mock dependencies BEFORE importing the service
 vi.mock('../../src/models/Account');
 vi.mock('../../src/models/Order', () => {
     const mockSave = vi.fn().mockResolvedValue({});
-    return {
-        // Determine if default export is needed or named export based on how source uses it.
-        // Source: import Order from '../models/Order' -> default export.
-        default: vi.fn().mockImplementation((data) => ({
-            ...data,
+    // Must return a function that works with 'new'
+    function MockOrder(this: any, data: any) {
+        Object.assign(this, data, {
             save: mockSave,
-            _id: 'mock_order_id'
-        })),
-        __esModule: true,
+            _id: new mongoose.Types.ObjectId(),
+            accountId: data.accountId
+        });
+    }
+    return {
+        default: MockOrder,
+        __esModule: true
+    };
+});
+vi.mock('../../src/models/Trade', () => {
+    const mockSave = vi.fn().mockResolvedValue({});
+    function MockTrade(this: any, data: any) {
+        Object.assign(this, data, {
+            save: mockSave,
+            _id: new mongoose.Types.ObjectId()
+        });
+    }
+    return {
+        default: MockTrade,
+        __esModule: true
     };
 });
 vi.mock('../../src/services/MarketDataService', () => ({
@@ -21,8 +37,24 @@ vi.mock('../../src/services/MarketDataService', () => ({
     },
     __esModule: true
 }));
-vi.mock('../../src/services/PositionService');
-vi.mock('../../src/services/AccountService');
+vi.mock('../../src/services/PositionService', () => ({
+    positionService: {
+        updatePosition: vi.fn().mockResolvedValue({})
+    },
+    __esModule: true
+}));
+vi.mock('../../src/services/AccountService', () => ({
+    accountService: {
+        updateBalance: vi.fn().mockResolvedValue({})
+    },
+    __esModule: true
+}));
+vi.mock('../../src/services/CacheService', () => ({
+    cacheService: {
+        invalidatePortfolio: vi.fn().mockResolvedValue(undefined)
+    },
+    __esModule: true
+}));
 
 // Import Service AFTER mocks
 import { paperTradingEngine } from '../../src/services/PaperTradingEngine';
@@ -39,7 +71,11 @@ describe('PaperTradingEngine', () => {
         it('should throw error if account not found', async () => {
             vi.mocked(Account.findById).mockResolvedValue(null);
 
-            await expect(paperTradingEngine.placeOrder({ accountId: 'invalid' } as any))
+            await expect(paperTradingEngine.placeOrder({
+                accountId: 'invalid',
+                scriptToken: '123',
+                quantity: 1
+            } as any))
                 .rejects.toThrow('Account not found');
         });
 

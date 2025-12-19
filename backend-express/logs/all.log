@@ -1,0 +1,30 @@
+2025-12-20 03:20:00:200 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:00:200 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 03:20:00:200 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:01:201 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:01:201 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:01:201 [33mwarn[39m: [33mRedis connection failed after 3 retries, caching disabled[39m
+2025-12-20 03:20:04:204 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:04:204 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 03:20:05:205 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:05:205 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:05:205 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:20:05:205 [33mwarn[39m: [33mRedis connection failed after 3 retries, caching disabled[39m
+2025-12-20 03:23:10:2310 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:10:2310 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 03:23:10:2310 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:10:2310 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:11:2311 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:11:2311 [33mwarn[39m: [33mRedis connection failed after 3 retries, caching disabled[39m
+2025-12-20 03:23:17:2317 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:17:2317 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 03:23:17:2317 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:17:2317 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:17:2317 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:23:17:2317 [33mwarn[39m: [33mRedis connection failed after 3 retries, caching disabled[39m
+2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:25:08:258 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 03:25:08:258 [33mwarn[39m: [33mRedis connection failed after 3 retries, caching disabled[39m
