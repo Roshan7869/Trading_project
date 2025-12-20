@@ -117,13 +117,31 @@ class AngelOneAdapter(BaseBrokerClient):
             # Build token list for subscription
             token_list = []
             for symbol in symbols:
-                if symbol in ANGEL_ONE_TOKENS:
+                token = None
+                exchange = 'NSE' # Default
+
+                # 1. Try Redis Dynamic Lookup
+                try:
+                     dynamic_token = self.redis_client.get(f"token:NSE:{symbol}")
+                     if dynamic_token:
+                         token = dynamic_token
+                except Exception:
+                    pass
+
+                # 2. Fallback to Hardcoded Map
+                if not token and symbol in ANGEL_ONE_TOKENS:
                     info = ANGEL_ONE_TOKENS[symbol]
-                    exchange_type = 1 if info['exchange'] == 'NSE' else 2
+                    token = info['token']
+                    exchange = info['exchange']
+
+                if token:
+                    exchange_type = 1 if exchange == 'NSE' else 2
                     token_list.append({
                         "exchangeType": exchange_type,
-                        "tokens": [info['token']]
+                        "tokens": [token]
                     })
+                else:
+                    logger.warning(f"⚠️ Token not found for {symbol} - Run instrument_loader.py")
             
             correlation_id = "paper_trading_stream"
             mode = 1  # LTP mode

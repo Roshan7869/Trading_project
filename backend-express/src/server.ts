@@ -20,9 +20,12 @@ import portfolioRoutes from './routes/portfolio';
 import watchlistRoutes from './routes/watchlist';
 import accountRoutes from './routes/accounts';
 import settingsRoutes from './routes/settings';
+import brokerRoutes from './routes/broker.routes';
+import marketRoutes from './routes/market.routes';
 import { marketDataService } from './services/MarketDataService';
 import { paperTradingEngine } from './services/PaperTradingEngine';
 import { cacheService } from './services/CacheService';
+import { redisService } from './services/RedisService';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { AppError } from './utils/AppError';
 import { StatusCodes } from 'http-status-codes';
@@ -72,6 +75,8 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/broker', brokerRoutes);
+app.use('/api/market', marketRoutes);
 
 // Health check with cache metrics
 app.get('/api/health', async (req, res) => {
@@ -94,36 +99,6 @@ app.get('/api/health', async (req, res) => {
     });
 });
 
-// API endpoint to get current market prices
-app.get('/api/market/prices', (req, res) => {
-    const prices = marketDataService.getAllPrices();
-    res.json({ prices });
-});
-
-app.get('/api/market/price/:symbol', (req, res) => {
-    const { symbol } = req.params;
-    const price = marketDataService.getPrice(symbol);
-
-    if (!price) {
-        return res.status(404).json({ error: 'Symbol not found' });
-    }
-
-    res.json(price);
-});
-
-// API endpoint to get historical OHLC candles
-app.get('/api/market/history/:symbol', (req, res) => {
-    const { symbol } = req.params;
-    const limit = parseInt(req.query.limit as string) || 100;
-
-    const candles = marketDataService.getCandles(symbol, limit);
-
-    if (candles.length === 0) {
-        return res.status(404).json({ error: 'No candle data available for symbol' });
-    }
-
-    res.json({ symbol, timeframe: '1m', candles });
-});
 
 // 404 Handler for undefined routes
 app.all('*', (req, res, next) => {
@@ -231,6 +206,9 @@ const connectRedis = async () => {
 
 // Start initialization
 connectRedis();
+
+// Connect RedisService for broker update publishing
+redisService.connect().catch(err => logger.warn(`RedisService connect error: ${err.message}`));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
