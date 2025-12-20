@@ -42,13 +42,22 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        console.error('API Error:', {
-            url: error.config?.url,
-            method: error.config?.method,
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message
-        });
+        // Don't spam console for expected auth errors (401) or network errors during initial load
+        const status = error.response?.status;
+        const isAuthError = status === 401;
+        const isNetworkError = !error.response && error.code === 'ERR_NETWORK';
+
+        // Only log non-auth errors or unexpected errors
+        if (!isAuthError && !isNetworkError) {
+            console.error('API Error:', {
+                url: error.config?.url,
+                method: error.config?.method,
+                status: status,
+                data: error.response?.data,
+                message: error.message
+            });
+        }
+
         return Promise.reject(error);
     }
 )

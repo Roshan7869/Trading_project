@@ -26,7 +26,15 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     }
 
     if (!user) {
-        return null
+        // Show brief loading while redirect happens
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Redirecting to login...</p>
+                </div>
+            </div>
+        )
     }
 
     return <>{children}</>

@@ -28,3 +28,150 @@
 2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
 2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
 2025-12-20 03:25:08:258 [33mwarn[39m: [33mRedis connection failed after 3 retries, caching disabled[39m
+2025-12-19 23:00:35:035 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-19 23:00:36:036 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-19 23:00:36:036 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-19 23:00:36:036 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-19 23:00:36:036 [32minfo[39m: [32m✅ Redis subscriber connected[39m
+2025-12-19 23:26:11:2611 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-19 23:26:11:2611 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-19 23:26:11:2611 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-19 23:26:11:2611 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-19 23:26:11:2611 [32minfo[39m: [32m✅ Redis subscriber connected[39m
+2025-12-19 23:32:49:3249 [32minfo[39m: [32m🔌 Client connected: L5u3Ey0WU-oCY2X5AAAC[39m
+2025-12-19 23:32:50:3250 [32minfo[39m: [32m🔌 Client disconnected: L5u3Ey0WU-oCY2X5AAAC[39m
+2025-12-20 00:00:17:017 [32minfo[39m: [32m🔌 Client connected: jLs1y3gUdUZx3_ulAAAE[39m
+2025-12-20 00:00:19:019 [32minfo[39m: [32m🔌 Client disconnected: jLs1y3gUdUZx3_ulAAAE[39m
+2025-12-20 00:00:24:024 [32minfo[39m: [32m🔌 Client connected: QkjZN8xXLJP7exi1AAAH[39m
+2025-12-20 00:00:25:025 [32minfo[39m: [32m🔌 Client disconnected: QkjZN8xXLJP7exi1AAAH[39m
+2025-12-20 00:04:08:48 [32minfo[39m: [32m🔌 Client connected: V8gGoCNZlXr9t--aAAAK[39m
+2025-12-20 00:04:08:48 [32minfo[39m: [32m🔌 Client disconnected: V8gGoCNZlXr9t--aAAAK[39m
+2025-12-20 00:04:09:49 [32minfo[39m: [32m🔌 Client connected: HDksMJZRv-EIPGDzAAAN[39m
+2025-12-20 00:04:09:49 [32minfo[39m: [32m🔌 Client disconnected: HDksMJZRv-EIPGDzAAAN[39m
+2025-12-20 00:08:40:840 [32minfo[39m: [32m🔌 Client connected: GNHDW9IQoFT8RpH6AAAP[39m
+2025-12-20 00:08:54:854 [32minfo[39m: [32m🔌 Client connected: K5qtNpRU7yafLN-6AAAS[39m
+2025-12-20 00:08:54:854 [32minfo[39m: [32m🔌 Client connected: gc-z5Fsp8H1e0bF3AAAV[39m
+2025-12-20 00:17:48:1748 [32minfo[39m: [32m🔌 Client connected: fVyQBaCTXGyhcAZjAAAX[39m
+2025-12-20 00:18:06:186 [32minfo[39m: [32m🔌 Client disconnected: GNHDW9IQoFT8RpH6AAAP[39m
+2025-12-20 00:18:18:1818 [32minfo[39m: [32m🔌 Client disconnected: gc-z5Fsp8H1e0bF3AAAV[39m
+2025-12-20 00:18:27:1827 [32minfo[39m: [32m🔌 Client connected: 4kw9DZKcpHkjKXTNAAAZ[39m
+2025-12-20 00:27:00:270 [32minfo[39m: [32m🔌 Client disconnected: fVyQBaCTXGyhcAZjAAAX[39m
+2025-12-20 00:27:30:2730 [32minfo[39m: [32m🔌 Client connected: 3AOB0OUxDyIb5ZvTAAAb[39m
+2025-12-20 00:27:39:2739 [32minfo[39m: [32m🔌 Client disconnected: 4kw9DZKcpHkjKXTNAAAZ[39m
+2025-12-20 00:27:56:2756 [32minfo[39m: [32m🔌 Client connected: CFYVb9kHISpufwpFAAAd[39m
+2025-12-20 00:28:01:281 [32minfo[39m: [32m🔌 Client disconnected: CFYVb9kHISpufwpFAAAd[39m
+2025-12-20 00:28:03:283 [32minfo[39m: [32m🔌 Client connected: _jg780KuYamEan56AAAg[39m
+2025-12-20 00:28:05:285 [32minfo[39m: [32m🔌 Client disconnected: _jg780KuYamEan56AAAg[39m
+2025-12-20 00:29:09:299 [32minfo[39m: [32m🔌 Client connected: Qnv6ASG-dZpiVimUAAAj[39m
+2025-12-20 00:37:28:3728 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 00:37:28:3728 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 00:37:28:3728 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-20 00:37:28:3728 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-20 00:37:31:3731 [33mwarn[39m: [33m⚠️ Redis connection failed/timed out, switching to MOCK data: Redis connection timeout[39m
+2025-12-20 00:37:31:3731 [31merror[39m: [31mRedis Client Error: Cannot read properties of undefined (reading 'destroy')[39m
+2025-12-20 00:37:31:3731 [33mwarn[39m: [33m📊 Starting MOCK market data (Redis unavailable)[39m
+2025-12-20 00:37:34:3734 [32minfo[39m: [32m🔌 Client connected: USIzIeaV5UHy5OfEAAAC[39m
+2025-12-20 00:37:38:3738 [32minfo[39m: [32m🔌 Client connected: e3YKCLy2VocFBKvLAAAF[39m
+2025-12-20 00:37:38:3738 [32minfo[39m: [32m🔌 Client connected: G1Y-j5kqJqunF4gdAAAG[39m
+2025-12-20 00:38:24:3824 [32minfo[39m: [32m🔌 Client disconnected: USIzIeaV5UHy5OfEAAAC[39m
+2025-12-20 00:38:58:3858 [32minfo[39m: [32m🔌 Client connected: VXme2C2od8Q-egrSAAAI[39m
+2025-12-20 00:39:15:3915 [32minfo[39m: [32m🔌 Client disconnected: G1Y-j5kqJqunF4gdAAAG[39m
+2025-12-20 00:39:15:3915 [32minfo[39m: [32m🔌 Client disconnected: e3YKCLy2VocFBKvLAAAF[39m
+2025-12-20 00:39:16:3916 [32minfo[39m: [32m🔌 Client connected: 8do9mcwmeJAc3qgrAAAK[39m
+2025-12-20 00:40:10:4010 [32minfo[39m: [32m🔌 Client disconnected: VXme2C2od8Q-egrSAAAI[39m
+2025-12-20 00:40:10:4010 [32minfo[39m: [32m🔌 Client disconnected: 8do9mcwmeJAc3qgrAAAK[39m
+2025-12-20 00:40:12:4012 [32minfo[39m: [32m🔌 Client connected: 7vQ19fAaC76EtDLJAAAM[39m
+2025-12-20 00:40:33:4033 [32minfo[39m: [32m🔌 Client connected: Q9G7ZDqhw08UZihZAAAO[39m
+2025-12-20 00:47:44:4744 [32minfo[39m: [32m🔌 Client disconnected: Q9G7ZDqhw08UZihZAAAO[39m
+2025-12-20 00:48:07:487 [32minfo[39m: [32m🔌 Client connected: p9qDLprvL6weUiESAAAQ[39m
+2025-12-20 00:51:56:5156 [32minfo[39m: [32m🔌 Client disconnected: 7vQ19fAaC76EtDLJAAAM[39m
+2025-12-20 00:52:04:524 [32minfo[39m: [32m🔌 Client connected: X2QhA2lMAcH58dndAAAS[39m
+2025-12-20 00:53:54:5354 [32minfo[39m: [32m🔌 Client disconnected: p9qDLprvL6weUiESAAAQ[39m
+2025-12-20 00:54:28:5428 [32minfo[39m: [32m🔌 Client connected: G6j7Xkb0b2cdWEycAAAU[39m
+2025-12-20 00:54:51:5451 [32minfo[39m: [32m🔌 Client connected: VRykVLFUVlj23GOzAAAW[39m
+2025-12-20 00:55:06:556 [32minfo[39m: [32m🔌 Client disconnected: G6j7Xkb0b2cdWEycAAAU[39m
+2025-12-20 00:55:13:5513 [32minfo[39m: [32m🔌 Client disconnected: VRykVLFUVlj23GOzAAAW[39m
+2025-12-20 00:56:18:5618 [32minfo[39m: [32m🔌 Client disconnected: X2QhA2lMAcH58dndAAAS[39m
+2025-12-20 00:56:36:5636 [32minfo[39m: [32m🔌 Client connected: qiWj7xmVJAtX7hf1AAAY[39m
+2025-12-20 00:56:38:5638 [32minfo[39m: [32m🔌 Client connected: hIwpA5tF-_LaTyNHAAAa[39m
+2025-12-20 00:58:02:582 [32minfo[39m: [32m🔌 Client disconnected: hIwpA5tF-_LaTyNHAAAa[39m
+2025-12-20 00:58:05:585 [32minfo[39m: [32m🔌 Client connected: 8mpMTnPByAXdY2JYAAAc[39m
+2025-12-20 00:59:09:599 [32minfo[39m: [32m🔌 Client disconnected: qiWj7xmVJAtX7hf1AAAY[39m
+2025-12-20 00:59:09:599 [32minfo[39m: [32m🔌 Client connected: 7Nbvi1kq2xEiWvsPAAAf[39m
+2025-12-20 00:59:10:5910 [32minfo[39m: [32m🔌 Client disconnected: 7Nbvi1kq2xEiWvsPAAAf[39m
+2025-12-20 01:02:10:210 [32minfo[39m: [32m🔌 Client connected: jjPTfm8T3QFUk1f9AAAi[39m
+2025-12-20 01:02:10:210 [32minfo[39m: [32m🔌 Client disconnected: jjPTfm8T3QFUk1f9AAAi[39m
+2025-12-20 01:02:12:212 [32minfo[39m: [32m🔌 Client connected: Kt5pE3BTjuYBw41xAAAl[39m
+2025-12-20 01:02:15:215 [32minfo[39m: [32m🔌 Client disconnected: Kt5pE3BTjuYBw41xAAAl[39m
+2025-12-20 01:02:15:215 [32minfo[39m: [32m🔌 Client connected: spg2kK9HuPbYceX3AAAo[39m
+2025-12-20 01:02:16:216 [32minfo[39m: [32m🔌 Client connected: _ePFw8H0Gs7EC9BoAAAr[39m
+2025-12-20 01:02:16:216 [32minfo[39m: [32m🔌 Client disconnected: spg2kK9HuPbYceX3AAAo[39m
+2025-12-20 01:02:16:216 [32minfo[39m: [32m🔌 Client disconnected: _ePFw8H0Gs7EC9BoAAAr[39m
+2025-12-20 01:02:16:216 [32minfo[39m: [32m🔌 Client connected: X81fTHuysrc_f0m1AAAu[39m
+2025-12-20 01:02:16:216 [32minfo[39m: [32m🔌 Client disconnected: X81fTHuysrc_f0m1AAAu[39m
+2025-12-20 01:02:16:216 [32minfo[39m: [32m🔌 Client connected: 3ND2yTpMUz03P-psAAAx[39m
+2025-12-20 01:02:17:217 [32minfo[39m: [32m🔌 Client disconnected: 3ND2yTpMUz03P-psAAAx[39m
+2025-12-20 01:02:17:217 [32minfo[39m: [32m🔌 Client connected: uuRIYcpGyOtneI_iAAA0[39m
+2025-12-20 01:02:17:217 [32minfo[39m: [32m🔌 Client disconnected: uuRIYcpGyOtneI_iAAA0[39m
+2025-12-20 01:02:18:218 [32minfo[39m: [32m🔌 Client connected: EDlWhaXeuqS0uJjTAAA3[39m
+2025-12-20 01:02:19:219 [32minfo[39m: [32m🔌 Client disconnected: EDlWhaXeuqS0uJjTAAA3[39m
+2025-12-20 01:02:19:219 [32minfo[39m: [32m🔌 Client connected: ZV1alRMzlAAxkxNXAAA6[39m
+2025-12-20 01:02:19:219 [32minfo[39m: [32m🔌 Client disconnected: ZV1alRMzlAAxkxNXAAA6[39m
+2025-12-20 01:02:19:219 [32minfo[39m: [32m🔌 Client connected: CxOrXam3o9bRkkGtAAA9[39m
+2025-12-20 01:02:19:219 [32minfo[39m: [32m🔌 Client disconnected: CxOrXam3o9bRkkGtAAA9[39m
+2025-12-20 01:02:20:220 [32minfo[39m: [32m🔌 Client connected: quo52rC7hg6u1RADAABA[39m
+2025-12-20 01:02:20:220 [32minfo[39m: [32m🔌 Client disconnected: quo52rC7hg6u1RADAABA[39m
+2025-12-20 01:02:20:220 [32minfo[39m: [32m🔌 Client connected: d4rdB62Ql0nkWqvbAABD[39m
+2025-12-20 01:02:20:220 [32minfo[39m: [32m🔌 Client disconnected: d4rdB62Ql0nkWqvbAABD[39m
+2025-12-20 01:02:20:220 [32minfo[39m: [32m🔌 Client connected: loKqqTWh7Hn2Sf9LAABG[39m
+2025-12-20 01:02:21:221 [32minfo[39m: [32m🔌 Client disconnected: loKqqTWh7Hn2Sf9LAABG[39m
+2025-12-20 01:02:21:221 [32minfo[39m: [32m🔌 Client connected: pAqef-MJjE3QgegdAABJ[39m
+2025-12-20 01:02:21:221 [32minfo[39m: [32m🔌 Client disconnected: pAqef-MJjE3QgegdAABJ[39m
+2025-12-20 01:02:21:221 [32minfo[39m: [32m🔌 Client connected: 2tjZi5gsUo8I9uQvAABM[39m
+2025-12-20 01:02:22:222 [32minfo[39m: [32m🔌 Client disconnected: 2tjZi5gsUo8I9uQvAABM[39m
+2025-12-20 01:02:22:222 [32minfo[39m: [32m🔌 Client connected: 0fHceigShthCvO7CAABP[39m
+2025-12-20 01:02:22:222 [32minfo[39m: [32m🔌 Client disconnected: 0fHceigShthCvO7CAABP[39m
+2025-12-20 06:04:58:458 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 06:04:58:458 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 06:04:58:458 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-20 06:04:58:458 [32minfo[39m: [32m✅ Redis subscriber connected[39m
+2025-12-20 06:05:16:516 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-20 06:16:17:1617 [32minfo[39m: [32m🔌 Client connected: BocenNnmsAoVctCcAAAC[39m
+2025-12-20 06:19:52:1952 [32minfo[39m: [32m🔌 Client disconnected: BocenNnmsAoVctCcAAAC[39m
+2025-12-20 06:21:29:2129 [32minfo[39m: [32m🔌 Client connected: fnpqRJ_hgIn5IT4EAAAJ[39m
+2025-12-20 06:21:48:2148 [32minfo[39m: [32m🔌 Client connected: GXRNGoVpJEFZXr4UAAAL[39m
+2025-12-20 06:22:19:2219 [32minfo[39m: [32m🔌 Client disconnected: fnpqRJ_hgIn5IT4EAAAJ[39m
+2025-12-20 06:33:39:3339 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 06:33:39:3339 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 06:33:43:3343 [33mwarn[39m: [33m⚠️ Redis connection failed/timed out, switching to MOCK data: Redis connection timeout[39m
+2025-12-20 06:33:43:3343 [33mwarn[39m: [33m📊 Starting MOCK market data (Redis unavailable)[39m
+2025-12-20 06:33:44:3344 [31merror[39m: [31mRedis Client Error: getaddrinfo ENOTFOUND redis[39m
+2025-12-20 06:33:47:3347 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 06:33:47:3347 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 06:33:51:3351 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 06:33:54:3354 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:11:31:1131 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 07:11:31:1131 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 07:11:31:1131 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-20 07:11:31:1131 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-20 07:11:32:1132 [32minfo[39m: [32m✅ Redis subscriber connected[39m
+2025-12-20 07:22:31:2231 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 07:22:31:2231 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 07:22:33:2233 [33mwarn[39m: [33m⚠️ Redis connection failed/timed out, switching to MOCK data: Redis connection timeout[39m
+2025-12-20 07:22:33:2233 [33mwarn[39m: [33m📊 Starting MOCK market data (Redis unavailable)[39m
+2025-12-20 07:22:34:2234 [31merror[39m: [31mRedis Client Error: getaddrinfo ENOTFOUND redis[39m
+2025-12-20 07:22:37:2237 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:22:37:2237 [33mwarn[39m: [33mCacheService: Redis not available, caching disabled[39m
+2025-12-20 07:22:41:2241 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:22:44:2244 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:28:31:2831 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 07:28:31:2831 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 07:28:32:2832 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-20 07:28:32:2832 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-20 07:28:34:2834 [32minfo[39m: [32m✅ Redis subscriber connected[39m
+2025-12-20 07:31:28:3128 [32minfo[39m: [32m🔌 Client connected: s5BM2ecD1s4FflDIAAAC[39m
+2025-12-20 07:49:45:4945 [32minfo[39m: [32m🚀 Express server running on port 4000[39m
+2025-12-20 07:49:45:4945 [32minfo[39m: [32m📡 Socket.io server ready[39m
+2025-12-20 07:49:46:4946 [32minfo[39m: [32m✅ CacheService: Redis connected[39m
+2025-12-20 07:49:46:4946 [32minfo[39m: [32m✅ MongoDB connected[39m
+2025-12-20 07:49:47:4947 [32minfo[39m: [32m✅ Redis subscriber connected[39m

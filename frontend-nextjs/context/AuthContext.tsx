@@ -43,15 +43,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isClerkLoaded, clerkUser]);
 
-    const fetchBackendProfile = async () => {
+    const fetchBackendProfile = async (retries = 3) => {
         try {
             setProfileLoading(true);
+            // Small delay to ensure Clerk token is ready
+            await new Promise(resolve => setTimeout(resolve, 500));
             const response = await userAPI.getProfile();
             setUser(response.data);
-        } catch (error) {
-            console.error('Failed to fetch user profile:', error);
-            // Don't auto-logout here as it might be a temporary backend issue
-            // But if it's 401, Clerk middleware should handle it
+        } catch (error: any) {
+            const status = error.response?.status;
+
+            // Retry on 401 (token might not be ready yet)
+            if (status === 401 && retries > 0) {
+                console.log(`Auth not ready, retrying... (${retries} attempts left)`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return fetchBackendProfile(retries - 1);
+            }
+
+            // Only log unexpected errors
+            if (status !== 401) {
+                console.error('Failed to fetch user profile:', error);
+            }
+            // Don't auto-logout here as Clerk middleware handles auth state
         } finally {
             setProfileLoading(false);
         }

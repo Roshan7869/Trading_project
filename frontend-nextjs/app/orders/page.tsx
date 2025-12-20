@@ -5,6 +5,7 @@ import { orderAPI } from '@/lib/api'
 import { TrendingUp, TrendingDown, CheckCircle, Clock, XCircle, Ban } from 'lucide-react'
 import { useOrderUpdates } from '@/hooks/useOrderUpdates'
 import { OrdersTableSkeleton } from '@/components/Skeletons'
+import ClientDate from '@/components/ClientDate'
 
 interface Order {
     id: string
@@ -156,10 +157,10 @@ export default function OrdersPage() {
                                             {order.quantity}
                                         </td>
                                         <td className="px-6 py-4 text-right text-gray-900">
-                                            ₹{order.price.toFixed(2)}
+                                            ₹{(order.price ?? 0).toFixed(2)}
                                         </td>
                                         <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                                            ₹{order.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                            ₹{(order.totalAmount ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`inline-flex items-center space-x-1 ${getStatusColor(order.status)}`}>
@@ -168,10 +169,7 @@ export default function OrdersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm text-gray-500">
-                                            {new Date(order.timestamp).toLocaleString('en-IN', {
-                                                dateStyle: 'short',
-                                                timeStyle: 'short',
-                                            })}
+                                            <ClientDate date={order.timestamp} />
                                         </td>
                                     </tr>
                                 ))}

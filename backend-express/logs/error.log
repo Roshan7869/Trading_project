@@ -18,3 +18,12 @@
 2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
 2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
 2025-12-20 03:25:08:258 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 00:37:31:3731 [31merror[39m: [31mRedis Client Error: Cannot read properties of undefined (reading 'destroy')[39m
+2025-12-20 06:33:44:3344 [31merror[39m: [31mRedis Client Error: getaddrinfo ENOTFOUND redis[39m
+2025-12-20 06:33:47:3347 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 06:33:51:3351 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 06:33:54:3354 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:22:34:2234 [31merror[39m: [31mRedis Client Error: getaddrinfo ENOTFOUND redis[39m
+2025-12-20 07:22:37:2237 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:22:41:2241 [31merror[39m: [31mCacheService Redis error:[39m
+2025-12-20 07:22:44:2244 [31merror[39m: [31mCacheService Redis error:[39m

@@ -9,6 +9,7 @@ import { TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import CandlestickChart from '@/components/charts/CandlestickChart'
 import OrderConfirmationModal from '@/components/OrderConfirmationModal'
+import ClientDate from '@/components/ClientDate'
 import { toast } from 'sonner'
 
 export default function StockDetailPage({ params }: { params: Promise<{ symbol: string }> }) {
@@ -127,9 +128,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                                     {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                                 </span>
                                 <span className="text-gray-500">
-                                    {stockData?.timestamp
-                                        ? new Date(stockData.timestamp).toLocaleString('en-IN')
-                                        : ''}
+                                    {stockData?.timestamp && <ClientDate date={stockData.timestamp} />}
                                 </span>
                             </div>
                         </div>

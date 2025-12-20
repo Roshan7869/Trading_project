@@ -64,7 +64,7 @@ export default function Header() {
                             <div className="flex items-center space-x-2 bg-secondary/50 px-3 py-1.5 rounded-full border border-gray-200">
                                 <Wallet className="h-4 w-4 text-primary" />
                                 <span className="font-semibold text-gray-900 text-sm">
-                                    ₹{user.walletBalance.toLocaleString('en-IN')}
+                                    ₹{(user.walletBalance ?? 0).toLocaleString('en-IN')}
                                 </span>
                             </div>
                         )}

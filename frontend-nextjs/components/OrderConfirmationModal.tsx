@@ -21,18 +21,23 @@ export default function OrderConfirmationModal({
     isOpen,
     onClose,
     onConfirm,
-    symbol,
-    side,
-    quantity,
-    price,
-    totalAmount,
+    symbol = '',
+    side = 'BUY',
+    quantity = 0,
+    price = 0,
+    totalAmount = 0,
     holdings = 0,
 }: OrderConfirmationProps) {
     const [isConfirming, setIsConfirming] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(false);
 
-    const isRisky = side === 'BUY' && totalAmount > 50000;
-    const insufficientHoldings = side === 'SELL' && quantity > holdings;
+    // Ensure safe values for calculations and display
+    const safePrice = price ?? 0;
+    const safeTotal = totalAmount ?? 0;
+    const safeQuantity = quantity ?? 0;
+
+    const isRisky = side === 'BUY' && safeTotal > 50000;
+    const insufficientHoldings = side === 'SELL' && safeQuantity > holdings;
 
     const handleConfirm = async () => {
         try {
@@ -48,6 +53,9 @@ export default function OrderConfirmationModal({
             setIsConfirming(false);
         }
     };
+
+    // Don't render if modal is not open (prevents errors with undefined props)
+    if (!isOpen) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -68,7 +76,7 @@ export default function OrderConfirmationModal({
                             <div className="rounded-lg border bg-secondary/50 p-4 space-y-3">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Symbol</span>
-                                    <span className="font-semibold">{symbol}</span>
+                                    <span className="font-semibold">{symbol || '--'}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Type</span>
@@ -78,15 +86,15 @@ export default function OrderConfirmationModal({
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Quantity</span>
-                                    <span className="font-semibold">{quantity}</span>
+                                    <span className="font-semibold">{safeQuantity}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Price</span>
-                                    <span className="font-semibold">₹{price.toLocaleString('en-IN')}</span>
+                                    <span className="font-semibold">₹{safePrice.toLocaleString('en-IN')}</span>
                                 </div>
                                 <div className="border-t my-2 pt-2 flex justify-between items-center font-bold">
                                     <span>Total</span>
-                                    <span>₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                    <span>₹{safeTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
 

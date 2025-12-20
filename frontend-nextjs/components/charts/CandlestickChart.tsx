@@ -277,19 +277,19 @@ export default function CandlestickChart({ symbol, height = 400 }: CandlestickCh
                 <div className="mt-4 grid grid-cols-4 gap-4">
                     <div className="bg-gray-700 p-3 rounded">
                         <p className="text-xs text-gray-400">Open</p>
-                        <p className="text-lg font-bold text-white">₹{candles[candles.length - 1]?.o.toFixed(2)}</p>
+                        <p className="text-lg font-bold text-white">₹{candles[candles.length - 1]?.o?.toFixed(2) ?? '0.00'}</p>
                     </div>
                     <div className="bg-gray-700 p-3 rounded">
                         <p className="text-xs text-gray-400">High</p>
-                        <p className="text-lg font-bold text-green-400">₹{candles[candles.length - 1]?.h.toFixed(2)}</p>
+                        <p className="text-lg font-bold text-green-400">₹{candles[candles.length - 1]?.h?.toFixed(2) ?? '0.00'}</p>
                     </div>
                     <div className="bg-gray-700 p-3 rounded">
                         <p className="text-xs text-gray-400">Low</p>
-                        <p className="text-lg font-bold text-red-400">₹{candles[candles.length - 1]?.l.toFixed(2)}</p>
+                        <p className="text-lg font-bold text-red-400">₹{candles[candles.length - 1]?.l?.toFixed(2) ?? '0.00'}</p>
                     </div>
                     <div className="bg-gray-700 p-3 rounded">
                         <p className="text-xs text-gray-400">Close</p>
-                        <p className="text-lg font-bold text-white">₹{candles[candles.length - 1]?.c.toFixed(2)}</p>
+                        <p className="text-lg font-bold text-white">₹{candles[candles.length - 1]?.c?.toFixed(2) ?? '0.00'}</p>
                     </div>
                 </div>
             )}

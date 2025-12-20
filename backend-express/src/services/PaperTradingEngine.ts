@@ -88,10 +88,21 @@ export class PaperTradingEngine {
 
     /**
      * Execute Order (Internal)
+     * Supports both transactional (replica set) and non-transactional (standalone) MongoDB
      */
     async executeOrder(order: IOrder, executionPrice: number) {
-        const session = await mongoose.startSession();
-        session.startTransaction();
+        // Try transactional execution first, fall back to non-transactional for standalone MongoDB
+        let useTransaction = true;
+        let session: mongoose.ClientSession | undefined = undefined;
+
+        try {
+            session = await mongoose.startSession();
+            session.startTransaction();
+        } catch (sessionError) {
+            console.warn('MongoDB sessions not supported, running without transactions');
+            useTransaction = false;
+            session = undefined;
+        }
 
         try {
             // 1. Update Order Status
@@ -103,7 +114,12 @@ export class PaperTradingEngine {
                 averagePrice: executionPrice,
                 remainingQuantity: 0
             };
-            await order.save({ session });
+
+            if (useTransaction && session) {
+                await order.save({ session });
+            } else {
+                await order.save();
+            }
 
             const qty = new Decimal(order.quantity);
             const price = new Decimal(executionPrice);
@@ -131,9 +147,14 @@ export class PaperTradingEngine {
                 },
                 netValue: netValue.toNumber()
             });
-            await trade.save({ session });
 
-            // 3. Update Position
+            if (useTransaction && session) {
+                await trade.save({ session });
+            } else {
+                await trade.save();
+            }
+
+            // 3. Update Position (pass session only if using transactions)
             await positionService.updatePosition(
                 order.accountId.toString(),
                 order.scriptToken,
@@ -143,18 +164,20 @@ export class PaperTradingEngine {
                 order.quantity,
                 executionPrice,
                 trade._id.toString(),
-                session
+                useTransaction && session ? session : undefined
             );
 
             // 4. Update Account Balance
             const totalValue = grossValue.toNumber();
             if (order.transactionType === 'BUY') {
-                await accountService.updateBalance(order.accountId.toString(), totalValue, 'DEBIT', session);
+                await accountService.updateBalance(order.accountId.toString(), totalValue, 'DEBIT', useTransaction && session ? session : undefined);
             } else {
-                await accountService.updateBalance(order.accountId.toString(), totalValue, 'CREDIT', session);
+                await accountService.updateBalance(order.accountId.toString(), totalValue, 'CREDIT', useTransaction && session ? session : undefined);
             }
 
-            await session.commitTransaction();
+            if (useTransaction && session) {
+                await session.commitTransaction();
+            }
 
             // 5. Invalidate cache for this user's portfolio
             const account = await Account.findById(order.accountId);
@@ -168,12 +191,111 @@ export class PaperTradingEngine {
                 this.io.emit('trade:executed', trade);
             }
 
-        } catch (error) {
-            await session.abortTransaction();
-            console.error('Transaction aborted:', error);
+        } catch (error: any) {
+            if (useTransaction && session) {
+                await session.abortTransaction();
+            }
+
+            // Check if error is due to transactions not being supported
+            if (error?.codeName === 'IllegalOperation' && error?.message?.includes('Transaction numbers')) {
+                console.warn('Transaction not supported on standalone MongoDB, retrying without transaction...');
+                if (session) {
+                    session.endSession();
+                }
+                // Retry without transaction
+                return this.executeOrderWithoutTransaction(order, executionPrice);
+            }
+
+            console.error('Order execution failed:', error);
             throw error;
         } finally {
-            session.endSession();
+            if (session) {
+                session.endSession();
+            }
+        }
+    }
+
+    /**
+     * Execute Order without MongoDB transaction (for standalone MongoDB)
+     */
+    private async executeOrderWithoutTransaction(order: IOrder, executionPrice: number) {
+        try {
+            // 1. Update Order Status
+            order.status = 'EXECUTED';
+            order.executionDetails = {
+                executedQuantity: order.quantity,
+                executedPrice: executionPrice,
+                executedAt: new Date(),
+                averagePrice: executionPrice,
+                remainingQuantity: 0
+            };
+            await order.save();
+
+            const qty = new Decimal(order.quantity);
+            const price = new Decimal(executionPrice);
+            const grossValue = qty.times(price);
+            const brokerage = new Decimal(20);
+            const netValue = grossValue.plus(brokerage);
+
+            // 2. Create Trade Record
+            const trade = new Trade({
+                accountId: order.accountId,
+                tradeId: `TRD${Date.now()}`,
+                orderId: order._id,
+                scriptToken: order.scriptToken,
+                symbolName: order.symbolName,
+                exchange: order.exchange,
+                quantity: order.quantity,
+                transactionType: order.transactionType,
+                executionPrice: executionPrice,
+                executedAt: new Date(),
+                grossValue: grossValue.toNumber(),
+                charges: {
+                    brokerage: 20,
+                    stt: 0,
+                    total: 20
+                },
+                netValue: netValue.toNumber()
+            });
+            await trade.save();
+
+            // 3. Update Position
+            await positionService.updatePosition(
+                order.accountId.toString(),
+                order.scriptToken,
+                order.symbolName || '',
+                order.exchange || 'NSE',
+                order.transactionType,
+                order.quantity,
+                executionPrice,
+                trade._id.toString()
+            );
+
+            // 4. Update Account Balance
+            const totalValue = grossValue.toNumber();
+            if (order.transactionType === 'BUY') {
+                await accountService.updateBalance(order.accountId.toString(), totalValue, 'DEBIT');
+            } else {
+                await accountService.updateBalance(order.accountId.toString(), totalValue, 'CREDIT');
+            }
+
+            // 5. Invalidate cache
+            const account = await Account.findById(order.accountId);
+            if (account && account.userId) {
+                await cacheService.invalidatePortfolio(account.userId.toString());
+            }
+
+            // 6. Emit Events
+            if (this.io) {
+                this.io.emit('order:updated', order);
+                this.io.emit('trade:executed', trade);
+            }
+
+            console.log(`✅ Order ${order.orderId} executed successfully (non-transactional mode)`);
+
+        } catch (error) {
+            console.error('Order execution failed (non-transactional):', error);
+            throw error;
         }
     }
 

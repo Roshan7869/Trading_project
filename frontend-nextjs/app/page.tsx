@@ -13,14 +13,40 @@ export default function LandingPage() {
     useEffect(() => {
         setMounted(true)
 
-        // Check if user is already logged in
-        const token = localStorage.getItem('token')
-        if (token) {
-            router.push('/dashboard')
+        // Check if user is already logged in (only on client)
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('token')
+            if (token) {
+                router.push('/dashboard')
+            }
         }
     }, [router])
 
-    if (!mounted) return null
+    // Show a loading skeleton that matches the page structure during SSR
+    // This prevents hydration mismatch while maintaining SEO
+    if (!mounted) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-primary/10 to-secondary">
+                <nav className="bg-white shadow-sm relative z-50">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex justify-between items-center h-16">
+                            <div className="flex items-center">
+                                <span className="text-2xl font-bold text-primary">PaperTrade</span>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+                    <div className="text-center">
+                        <div className="animate-pulse">
+                            <div className="h-12 bg-gray-200 rounded w-3/4 mx-auto mb-6"></div>
+                            <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto mb-8"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-primary/10 to-secondary">
