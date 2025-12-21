@@ -74,7 +74,7 @@ class RedisService {
      * Notify the Data Engine that a broker connection was updated.
      * The Data Engine listens on 'broker_update' channel.
      */
-    async notifyBrokerUpdate(userId: string, broker: string, action: 'connect' | 'disconnect'): Promise<boolean> {
+    async notifyBrokerUpdate(userId: string, broker: string, action: 'connect' | 'disconnect' | 'switch'): Promise<boolean> {
         return this.publish('broker_update', {
             userId,
             broker,

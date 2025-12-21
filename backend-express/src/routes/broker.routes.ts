@@ -88,6 +88,126 @@ router.get('/connected', async (req: Request, res: Response) => {
     }
 });
 
+// Disconnect broker
+router.post('/disconnect', async (req: Request, res: Response) => {
+    try {
+        const { userId, brokerName } = req.body;
+
+        if (!userId || !brokerName) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        // Remove from in-memory store
+        const key = `${userId}_${brokerName}`;
+        userBrokers.delete(key);
+
+        // Update database status
+        await UserBrokerConnection.findOneAndUpdate(
+            { userId, brokerName },
+            { status: 'disconnected', disconnectedAt: new Date() }
+        );
+
+        // Notify Data Engine to stop streaming for this user
+        await redisService.notifyBrokerUpdate(userId, brokerName, 'disconnect');
+
+        res.json({
+            success: true,
+            message: `Disconnected from ${brokerName} successfully`
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Check broker connection status
+router.get('/status', async (req: Request, res: Response) => {
+    try {
+        const { userId, brokerName } = req.query;
+
+        if (!userId || !brokerName) {
+            return res.status(400).json({ error: 'userId and brokerName required' });
+        }
+
+        const key = `${userId}_${brokerName}`;
+        const adapter = userBrokers.get(key);
+
+        // Check database
+        const connection = await UserBrokerConnection.findOne({ userId, brokerName });
+
+        res.json({
+            connected: !!adapter,
+            sessionActive: adapter ? adapter.isTokenValid() : false,
+            databaseStatus: connection?.status || 'not_found',
+            connectedAt: connection?.connectedAt,
+            brokerName
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Switch active broker for user session
+router.post('/switch', async (req: Request, res: Response) => {
+    try {
+        const { userId, brokerName } = req.body;
+
+        if (!userId || !brokerName) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        // Verify broker is connected
+        const connection = await UserBrokerConnection.findOne({ userId, brokerName, status: 'active' });
+
+        if (!connection) {
+            return res.status(404).json({
+                success: false,
+                message: `Broker ${brokerName} is not connected`
+            });
+        }
+
+        // Notify Data Engine to switch active broker
+        await redisService.notifyBrokerUpdate(userId, brokerName, 'switch');
+
+        res.json({
+            success: true,
+            activeBroker: brokerName,
+            message: `Switched to ${brokerName}`
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get broker session info (for reconnecting)
+router.get('/session', async (req: Request, res: Response) => {
+    try {
+        const { userId, brokerName } = req.query;
+
+        if (!userId || !brokerName) {
+            return res.status(400).json({ error: 'userId and brokerName required' });
+        }
+
+        const key = `${userId}_${brokerName}`;
+        const adapter = userBrokers.get(key);
+
+        if (!adapter) {
+            return res.json({
+                hasSession: false,
+                message: 'No active session. Please connect again.'
+            });
+        }
+
+        res.json({
+            hasSession: true,
+            isValid: adapter.isTokenValid(),
+            brokerName: adapter.brokerName,
+            message: adapter.isTokenValid() ? 'Session is active' : 'Session expired. Please reconnect.'
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ===== UNIVERSAL TRADING ENDPOINTS =====
 
 // Place order (broker-agnostic)
