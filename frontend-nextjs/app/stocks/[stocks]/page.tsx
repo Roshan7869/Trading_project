@@ -12,9 +12,9 @@ import OrderConfirmationModal from '@/components/OrderConfirmationModal'
 import ClientDate from '@/components/ClientDate'
 import { toast } from 'sonner'
 
-export default function StockDetailPage({ params }: { params: Promise<{ symbol: string }> }) {
+export default function StockDetailPage({ params }: { params: Promise<{ stocks: string }> }) {
     const unwrappedParams = use(params)
-    const symbol = unwrappedParams.symbol
+    const symbol = unwrappedParams.stocks // folder is [stocks], so param is 'stocks'
     const { marketData } = useMarket()
     const { user, refreshUser } = useAuth()
     const router = useRouter()
@@ -35,10 +35,13 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
     const fetchHoldings = async () => {
         try {
             const response = await portfolioAPI.get()
-            const holding = response.data.holdings.find((h: any) => h.symbol === symbol)
+            // API returns positions, not holdings - add null safety
+            const positions = response.data?.positions || []
+            const holding = positions.find((h: any) => h.symbol === symbol)
             setHoldings(holding?.quantity || 0)
         } catch (error) {
             console.error('Failed to fetch holdings:', error)
+            setHoldings(0)
         }
     }
 
