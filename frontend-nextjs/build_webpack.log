@@ -1,0 +1,19 @@
+▲ Next.js 16.1.0 (webpack)
+- Experiments (use with caution):
+  · optimizePackageImports
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (181kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+✓ Compiled successfully in 74s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/8) ...
+Error occurred prerendering page "/_not-found". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: @clerk/clerk-react: Missing publishableKey. You can get your key at https://dashboard.clerk.com/last-active?path=api-keys.
+    at Object.throwMissingPublishableKeyError (D:\Trading_project\frontend-nextjs\.next\server\chunks\136.js:35:1487)
+    at h (D:\Trading_project\frontend-nextjs\.next\server\chunks\136.js:1:55379) {
+  digest: '334836248'
+}
+Export encountered an error on /_not-found/page: /_not-found, exiting the build.
+⨯ Next.js build worker exited with code: 1 and signal: null

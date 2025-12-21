@@ -18,18 +18,17 @@ import {
 } from 'lucide-react'
 import BrokerSetupModal from '@/components/Trading/BrokerSetupModal'
 
+import { useUser, useClerk } from '@clerk/nextjs'
+
 export default function LandingPage() {
     const router = useRouter()
-    const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const { isSignedIn, user } = useUser()
+    const { signOut } = useClerk()
     const [showBrokerModal, setShowBrokerModal] = useState(false)
+    const [initialBroker, setInitialBroker] = useState<string | null>(null)
 
-    useEffect(() => {
-        // Check for token in localStorage
-        const token = localStorage.getItem('token')
-        if (token) {
-            setIsLoggedIn(true)
-        }
-    }, [])
+    // Removed legacy localStorage check
+    const isLoggedIn = !!isSignedIn
 
     const handleStartTrading = () => {
         if (isLoggedIn) {
@@ -39,17 +38,17 @@ export default function LandingPage() {
         }
     }
 
-    const handleConnectBroker = () => {
+    const handleConnectBroker = (brokerName?: string) => {
         if (isLoggedIn) {
+            setInitialBroker(brokerName || null)
             setShowBrokerModal(true)
         } else {
             router.push('/login')
         }
     }
 
-    const handleLogout = () => {
-        localStorage.removeItem('token')
-        setIsLoggedIn(false)
+    const handleLogout = async () => {
+        await signOut()
         router.refresh()
     }
 
@@ -137,7 +136,7 @@ export default function LandingPage() {
                                 <ArrowRight className="h-5 w-5" />
                             </button>
                             <button
-                                onClick={handleConnectBroker}
+                                onClick={() => handleConnectBroker()}
                                 className="w-full sm:w-auto px-8 py-4 bg-white text-emerald-700 border-2 border-emerald-100 rounded-xl hover:border-emerald-200 hover:bg-emerald-50 transition font-bold text-lg flex items-center justify-center gap-2"
                             >
                                 <Zap className="h-5 w-5" />
@@ -204,19 +203,22 @@ export default function LandingPage() {
                                 name: 'Angel One',
                                 image: '/brokers/angel-one.jpg', // Updated path
                                 desc: 'Experience lightning-fast execution and robust API availability.',
-                                features: ['Smart API', 'Historical Data', 'Real-time Feeds']
+                                features: ['Smart API', 'Historical Data', 'Real-time Feeds'],
+                                code: 'ANGEL_ONE'
                             },
                             {
                                 name: 'Zerodha',
                                 image: '/brokers/zerodha.png', // Updated path
                                 desc: 'India\'s largest stock broker with a powerful technology stack.',
-                                features: ['Kite Connect', 'WebSocket', 'Market Depth']
+                                features: ['Kite Connect', 'WebSocket', 'Market Depth'],
+                                code: 'ZERODHA_KITE'
                             },
                             {
                                 name: 'Kotak Neo',
                                 image: '/brokers/kotak-neo.png', // Updated path
                                 desc: 'Zero brokerage on intraday trades with high-speed reliability.',
-                                features: ['Neo API', 'Oauth 2.0', 'Option Chain']
+                                features: ['Neo API', 'Oauth 2.0', 'Option Chain'],
+                                code: 'KOTAK_NEO'
                             }
                         ].map((broker) => (
                             <div key={broker.name} className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group">
@@ -241,7 +243,7 @@ export default function LandingPage() {
                                     ))}
                                 </div>
                                 <button
-                                    onClick={handleConnectBroker}
+                                    onClick={() => handleConnectBroker(broker.code)}
                                     className="w-full mt-8 py-3 rounded-lg border border-emerald-200 text-emerald-700 font-medium hover:bg-emerald-50 transition"
                                 >
                                     Connect {broker.name}
@@ -316,6 +318,7 @@ export default function LandingPage() {
             <BrokerSetupModal
                 isOpen={showBrokerModal}
                 onClose={() => setShowBrokerModal(false)}
+                initialBroker={initialBroker}
                 onSuccess={() => {
                     setShowBrokerModal(false)
                     router.push('/dashboard')

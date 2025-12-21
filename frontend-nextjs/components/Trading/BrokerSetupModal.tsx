@@ -17,6 +17,7 @@ interface BrokerSetupModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: (brokerName: string) => void;
+    initialBroker?: string | null;
 }
 
 const BROKER_INFO: Record<string, { description: string; color: string }> = {
@@ -29,27 +30,34 @@ const BROKER_INFO: Record<string, { description: string; color: string }> = {
         color: 'bg-blue-50'
     },
     'ZERODHA_KITE': {
-        description: "India's largest retail broker with extensive ecosystem and WebSocket support.",
+        description: "India's largest stock broker with a powerful technology stack.",
         color: 'bg-orange-50'
     }
 };
 
 const FIELD_LABELS: Record<string, string> = {
+    // Kotak Neo
     consumerKey: 'Consumer Key',
     consumerSecret: 'Consumer Secret',
-    clientId: 'Client ID / UCC',
+    clientId: 'Client ID (UCC)',
     mpin: 'MPIN (6-digit)',
-    mobile: 'Registered Mobile',
-    totpSecret: 'TOTP Secret (Base32)',
+    mobile: 'Registered Mobile Number',
+    totpSecret: 'TOTP Secret (Google Authenticator)',
+
+    // Angel One
     clientCode: 'API Client Code',
     apiPassword: 'API Password',
     brokerApiKey: 'Broker API Key',
+
+    // Zerodha
     apiKey: 'API Key',
     apiSecret: 'API Secret',
-    password: 'Login Password'
+    // clientId reusable
+    password: 'Password (for login)',
+    // totpSecret reusable
 };
 
-export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onClose, onSuccess, initialBroker }) => {
     const [step, setStep] = useState<'select' | 'credentials' | 'connecting' | 'success'>('select');
     const [availableBrokers, setAvailableBrokers] = useState<Broker[]>([]);
     const [selectedBroker, setSelectedBroker] = useState<Broker | null>(null);
@@ -60,23 +68,48 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
 
     useEffect(() => {
         if (isOpen) {
-            fetchBrokers();
+            // Reset to default state first
             setStep('select');
-            setSelectedBroker(null);
             setCredentials({});
             setError(null);
+            setSelectedBroker(null);
+
+            const loadAndSelect = async () => {
+                const brokers = await fetchBrokers();
+                if (initialBroker) {
+                    const target = brokers.find(b =>
+                        b.name === initialBroker ||
+                        b.displayName.toLowerCase().includes(initialBroker.toLowerCase())
+                    );
+
+                    if (target) {
+                        // Small timeout to ensure state updates don't clash
+                        setTimeout(() => {
+                            setSelectedBroker(target);
+                            setStep('credentials');
+                        }, 50);
+                    }
+                }
+            };
+            loadAndSelect();
         }
-    }, [isOpen]);
+    }, [isOpen, initialBroker]);
 
     const fetchBrokers = async () => {
+        let brokers: Broker[] = [];
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/broker/available`);
-            const data = await response.json();
-            setAvailableBrokers(data.brokers || []);
+            if (response.ok) {
+                const data = await response.json();
+                brokers = data.brokers || [];
+            }
         } catch (err) {
             console.error('Failed to load brokers:', err);
-            // Fallback data
-            setAvailableBrokers([
+        }
+
+        // Use fallback if API failed or returned empty
+        if (brokers.length === 0) {
+            brokers = [
                 {
                     name: 'KOTAK_NEO',
                     displayName: 'Kotak Neo',
@@ -98,8 +131,10 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                     features: ['Largest Broker', 'WebSocket Support', 'Rich Ecosystem'],
                     requiredFields: ['apiKey', 'apiSecret', 'clientId', 'password', 'totpSecret']
                 }
-            ]);
+            ];
         }
+        setAvailableBrokers(brokers);
+        return brokers;
     };
 
     const handleBrokerSelect = (broker: Broker) => {
@@ -119,7 +154,7 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
 
     const isPasswordField = (field: string) => {
         const lwField = field.toLowerCase();
-        return lwField.includes('password') || lwField.includes('secret') || lwField.includes('pin') || lwField.includes('mpin');
+        return lwField.includes('password') || lwField.includes('secret') || lwField.includes('pin') || lwField.includes('mpin') || lwField.includes('key');
     };
 
     const validateCredentials = () => {
@@ -221,8 +256,8 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                                 <React.Fragment key={label}>
                                     <div className="flex items-center gap-2">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${isCompleted ? 'bg-emerald-500 text-white' :
-                                                isActive ? 'bg-emerald-600 text-white' :
-                                                    'bg-gray-100 text-gray-400'
+                                            isActive ? 'bg-emerald-600 text-white' :
+                                                'bg-gray-100 text-gray-400'
                                             }`}>
                                             {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
                                         </div>

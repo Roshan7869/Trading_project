@@ -31,4 +31,4 @@ COPY . .
 EXPOSE 3000
 
 # Development command with Turbopack for faster refresh
-CMD ["npm", "run", "dev", "--", "--turbopack"]
+CMD ["npm", "run", "dev"]

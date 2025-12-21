@@ -114,8 +114,8 @@ mongoose.connect(MONGO_URL)
         logger.info('✅ MongoDB connected');
 
         // Seed test data for TEST_MODE
-        const { seedTestData } = await import('./utils/testSeeder');
-        await seedTestData();
+        // const { seedTestData } = await import('./utils/testSeeder');
+        // await seedTestData();
     })
     .catch(err => logger.error(`❌ MongoDB connection error: ${err}`));
 
