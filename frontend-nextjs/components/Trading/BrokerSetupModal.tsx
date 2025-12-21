@@ -19,21 +19,18 @@ interface BrokerSetupModalProps {
     onSuccess: (brokerName: string) => void;
 }
 
-const BROKER_INFO: Record<string, { description: string; color: string; icon: string }> = {
+const BROKER_INFO: Record<string, { description: string; color: string }> = {
     'KOTAK_NEO': {
         description: 'Zero-brokerage trading with ultra-low latency. Perfect for high-frequency traders.',
-        color: 'from-red-500 to-orange-500',
-        icon: '🏦'
+        color: 'bg-red-50'
     },
     'ANGEL_ONE': {
         description: 'Fast execution with easy API integration. Supports crypto trading.',
-        color: 'from-blue-500 to-cyan-500',
-        icon: '👼'
+        color: 'bg-blue-50'
     },
     'ZERODHA_KITE': {
         description: "India's largest retail broker with extensive ecosystem and WebSocket support.",
-        color: 'from-green-500 to-emerald-500',
-        icon: '🪁'
+        color: 'bg-orange-50'
     }
 };
 
@@ -83,21 +80,21 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                 {
                     name: 'KOTAK_NEO',
                     displayName: 'Kotak Neo',
-                    logo: '/logos/kotak-neo.png',
+                    logo: '/brokers/kotak-neo.png',
                     features: ['Zero Brokerage', 'Ultra-Low Latency', 'NSE/BSE/NFO'],
                     requiredFields: ['consumerKey', 'consumerSecret', 'clientId', 'mpin', 'mobile', 'totpSecret']
                 },
                 {
                     name: 'ANGEL_ONE',
                     displayName: 'Angel One',
-                    logo: '/logos/angel-one.png',
+                    logo: '/brokers/angel-one.jpg',
                     features: ['Fast Execution', 'Bracket Orders', 'Crypto Trading'],
                     requiredFields: ['clientCode', 'apiPassword', 'brokerApiKey', 'totpSecret']
                 },
                 {
                     name: 'ZERODHA_KITE',
                     displayName: 'Zerodha Kite',
-                    logo: '/logos/zerodha.png',
+                    logo: '/brokers/zerodha.png',
                     features: ['Largest Broker', 'WebSocket Support', 'Rich Ecosystem'],
                     requiredFields: ['apiKey', 'apiSecret', 'clientId', 'password', 'totpSecret']
                 }
@@ -182,34 +179,34 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                 onClick={onClose}
             />
 
             {/* Modal */}
-            <div className="relative w-full max-w-2xl mx-4 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-2xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="relative px-6 py-4 border-b border-gray-700">
+                <div className="relative px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                                <Shield className="w-5 h-5 text-white" />
+                            <div className="p-2 bg-emerald-100 rounded-lg">
+                                <Shield className="w-5 h-5 text-emerald-600" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">Connect Your Broker</h2>
-                                <p className="text-sm text-gray-400">Secure API Integration</p>
+                                <h2 className="text-xl font-bold text-gray-900">Connect Your Broker</h2>
+                                <p className="text-sm text-gray-500">Secure API Integration</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                         >
                             <X className="w-5 h-5 text-gray-400" />
                         </button>
                     </div>
 
                     {/* Progress Steps */}
-                    <div className="flex items-center gap-2 mt-4">
+                    <div className="flex items-center gap-2 mt-6">
                         {['Select Broker', 'Enter Credentials', 'Connect'].map((label, idx) => {
                             const stepNum = idx + 1;
                             const isActive =
@@ -223,17 +220,17 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                             return (
                                 <React.Fragment key={label}>
                                     <div className="flex items-center gap-2">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${isCompleted ? 'bg-green-500 text-white' :
-                                                isActive ? 'bg-blue-500 text-white' :
-                                                    'bg-gray-700 text-gray-400'
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${isCompleted ? 'bg-emerald-500 text-white' :
+                                                isActive ? 'bg-emerald-600 text-white' :
+                                                    'bg-gray-100 text-gray-400'
                                             }`}>
                                             {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
                                         </div>
-                                        <span className={`text-sm hidden sm:block ${isActive ? 'text-white' : 'text-gray-500'}`}>
+                                        <span className={`text-sm hidden sm:block ${isActive ? 'text-emerald-700 font-medium' : 'text-gray-500'}`}>
                                             {label}
                                         </span>
                                     </div>
-                                    {idx < 2 && <ChevronRight className="w-4 h-4 text-gray-600" />}
+                                    {idx < 2 && <ChevronRight className="w-4 h-4 text-gray-300" />}
                                 </React.Fragment>
                             );
                         })}
@@ -245,7 +242,7 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                     {/* Step 1: Broker Selection */}
                     {step === 'select' && (
                         <div className="space-y-4">
-                            <p className="text-gray-300 mb-6">
+                            <p className="text-gray-600 mb-6">
                                 Choose your preferred broker to connect and start trading with real market data.
                             </p>
                             <div className="grid gap-4">
@@ -255,28 +252,32 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                                         <button
                                             key={broker.name}
                                             onClick={() => handleBrokerSelect(broker)}
-                                            className="group relative p-4 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700 hover:border-gray-500 rounded-xl transition-all duration-200 text-left"
+                                            className="group relative p-4 bg-white border border-gray-200 hover:border-emerald-500 hover:ring-1 hover:ring-emerald-500 rounded-xl transition-all duration-200 text-left"
                                         >
                                             <div className="flex items-start gap-4">
-                                                <div className={`p-3 rounded-xl bg-gradient-to-br ${info?.color || 'from-gray-500 to-gray-600'} text-3xl`}>
-                                                    {info?.icon || '🏛️'}
+                                                <div className="w-16 h-16 flex items-center justify-center p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                                    <img
+                                                        src={broker.logo}
+                                                        alt={broker.displayName}
+                                                        className="w-full h-full object-contain mix-blend-multiply"
+                                                    />
                                                 </div>
                                                 <div className="flex-1">
-                                                    <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
+                                                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">
                                                         {broker.displayName}
                                                     </h3>
-                                                    <p className="text-sm text-gray-400 mt-1">
+                                                    <p className="text-sm text-gray-500 mt-1">
                                                         {info?.description || 'Trading platform integration'}
                                                     </p>
                                                     <div className="flex flex-wrap gap-2 mt-3">
                                                         {broker.features.map(feature => (
-                                                            <span key={feature} className="px-2 py-1 text-xs bg-gray-700/50 text-gray-300 rounded-full">
-                                                                ✓ {feature}
+                                                            <span key={feature} className="px-2 py-1 text-xs bg-gray-100 text-gray-600 font-medium rounded-full border border-gray-200">
+                                                                {feature}
                                                             </span>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
+                                                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-500 transition-colors" />
                                             </div>
                                         </button>
                                     );
@@ -287,21 +288,25 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
 
                     {/* Step 2: Credentials Form */}
                     {step === 'credentials' && selectedBroker && (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {/* Broker Header */}
-                            <div className="flex items-center gap-3 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-                                <div className={`p-3 rounded-xl bg-gradient-to-br ${brokerInfo?.color || 'from-gray-500 to-gray-600'} text-2xl`}>
-                                    {brokerInfo?.icon || '🏛️'}
+                            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                <div className="w-12 h-12 bg-white rounded-lg p-2 border border-gray-200 flex items-center justify-center">
+                                    <img
+                                        src={selectedBroker.logo}
+                                        alt={selectedBroker.displayName}
+                                        className="w-full h-full object-contain mix-blend-multiply"
+                                    />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-white">{selectedBroker.displayName}</h3>
-                                    <p className="text-sm text-gray-400">Enter your API credentials</p>
+                                    <h3 className="font-bold text-gray-900">{selectedBroker.displayName}</h3>
+                                    <p className="text-sm text-gray-500">Enter your API credentials</p>
                                 </div>
                             </div>
 
                             {/* Error Message */}
                             {error && (
-                                <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
+                                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600">
                                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                                     <p className="text-sm">{error}</p>
                                 </div>
@@ -311,9 +316,9 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                             <div className="space-y-4">
                                 {selectedBroker.requiredFields.map(field => (
                                     <div key={field} className="space-y-1">
-                                        <label className="block text-sm font-medium text-gray-300">
+                                        <label className="block text-sm font-medium text-gray-700">
                                             {FIELD_LABELS[field] || field.replace(/([A-Z])/g, ' $1').trim()}
-                                            <span className="text-red-400 ml-1">*</span>
+                                            <span className="text-red-500 ml-1">*</span>
                                         </label>
                                         <div className="relative">
                                             <input
@@ -321,17 +326,17 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                                                 placeholder={`Enter ${FIELD_LABELS[field] || field}`}
                                                 value={credentials[field] || ''}
                                                 onChange={(e) => handleCredentialChange(field, e.target.value)}
-                                                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 focus:border-blue-500 rounded-lg text-white placeholder-gray-500 transition-colors pr-12"
+                                                className="w-full px-4 py-3 bg-white border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-lg text-gray-900 placeholder-gray-400 transition-all pr-12"
                                             />
                                             {isPasswordField(field) && (
                                                 <button
                                                     type="button"
                                                     onClick={() => togglePasswordVisibility(field)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-700 rounded transition-colors"
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 transition-colors"
                                                 >
                                                     {showPasswords[field] ?
-                                                        <EyeOff className="w-5 h-5 text-gray-400" /> :
-                                                        <Eye className="w-5 h-5 text-gray-400" />
+                                                        <EyeOff className="w-5 h-5" /> :
+                                                        <Eye className="w-5 h-5" />
                                                     }
                                                 </button>
                                             )}
@@ -341,25 +346,25 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                             </div>
 
                             {/* Security Note */}
-                            <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                                <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                <p className="text-sm text-blue-300">
-                                    Your credentials are encrypted using AES-256 and stored securely. We never share your data with third parties.
+                            <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                <Shield className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-emerald-800 leading-relaxed">
+                                    Your credentials are encrypted using <strong>AES-256</strong> bank-grade encryption. We never share your keys with third parties and they are only used to execute trades on your behalf.
                                 </p>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={() => setStep('select')}
-                                    className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+                                    className="flex-1 px-4 py-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-xl transition-colors"
                                 >
                                     Back
                                 </button>
                                 <button
                                     onClick={handleConnect}
                                     disabled={!validateCredentials()}
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                                 >
                                     <Zap className="w-4 h-4" />
                                     Connect Broker
@@ -371,22 +376,22 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
                     {/* Step 3: Connecting */}
                     {step === 'connecting' && (
                         <div className="py-12 text-center">
-                            <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500/20 rounded-full mb-6">
-                                <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-50 rounded-full mb-6">
+                                <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
                             </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">Connecting to {selectedBroker?.displayName}</h3>
-                            <p className="text-gray-400">Authenticating your credentials...</p>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Connecting to {selectedBroker?.displayName}</h3>
+                            <p className="text-gray-500">Authenticating your credentials & creating session...</p>
                         </div>
                     )}
 
                     {/* Step 4: Success */}
                     {step === 'success' && (
                         <div className="py-12 text-center">
-                            <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 rounded-full mb-6 animate-bounce">
-                                <Check className="w-10 h-10 text-green-500" />
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6 animate-bounce">
+                                <Check className="w-10 h-10 text-green-600" />
                             </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">Successfully Connected!</h3>
-                            <p className="text-gray-400">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Successfully Connected!</h3>
+                            <p className="text-gray-500">
                                 Your {selectedBroker?.displayName} account is now linked.
                                 Redirecting to trading dashboard...
                             </p>
