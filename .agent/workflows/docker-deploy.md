@@ -102,3 +102,30 @@ File watching uses polling mode for Docker compatibility. This is already config
 
 ### MongoDB connection issues
 Ensure the container uses `mongo:27017` (not `localhost:27017`) in the Docker network.
+
+## Optimized Sequential Startup (Recommended)
+
+For better performance and distributed loading, use the optimized startup script:
+
+```powershell
+# Full Docker mode - starts services sequentially with health checks
+.\start-optimized.ps1 docker
+
+# Skip rebuilding Docker images (faster if no code changes)
+.\start-optimized.ps1 docker -SkipBuild
+
+# Local mode - Run apps locally, only databases in Docker
+.\start-optimized.ps1 local
+```
+
+### Benefits of Sequential Startup
+1. **Distributed CPU Load** - Services start one at a time, preventing CPU spikes
+2. **Health Checks** - Each service is verified healthy before starting the next
+3. **Performance Tracking** - Shows exact timing for each startup phase
+4. **Better Debugging** - Easier to identify which service failed
+
+### Startup Order
+1. **Phase 1: Infrastructure** - MongoDB → Redis
+2. **Phase 2: Backend** - Express API (waits for DB health)
+3. **Phase 3: Data Services** - Data Engine → Strategy Engine
+4. **Phase 4: Frontend** - Next.js (loaded last, heaviest service)
