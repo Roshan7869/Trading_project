@@ -1,7 +1,41 @@
+# Dependencies
 node_modules
+
+# Build outputs
 .next
+out
+build
+
+# Environment files
 .env
 .env.local
-.git
+.env.*.local
+
+# IDE
+.vscode
+.idea
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Testing
 coverage
+.nyc_output
+
+# Logs
+*.log
+npm-debug.log*
+
+# Git
+.git
+.gitignore
+
+# TypeScript cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Misc
+README.md
+*.md
+LICENSE

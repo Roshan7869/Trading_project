@@ -14,45 +14,58 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   # Cache & Pub/Sub Service
   redis:
-    image: redis:latest
+    image: redis:7-alpine
     container_name: trading-redis
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
     networks:
       - trading-net
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
+      start_period: 10s
 
-  # Backend Service
+  # Backend Service (Development Mode)
   backend:
-    build: ./backend-express
+    build:
+      context: ./backend-express
+      dockerfile: Dockerfile.dev
     container_name: trading-backend
-    restart: always
+    restart: unless-stopped
     ports:
       - "4000:4000"
     volumes:
-      - ./backend-express:/app
-      - /app/node_modules
+      - ./backend-express/src:/app/src:delegated
+      - ./backend-express/package.json:/app/package.json:ro
+      - ./backend-express/nodemon.json:/app/nodemon.json:ro
+      - ./backend-express/tsconfig.json:/app/tsconfig.json:ro
+      - backend_node_modules:/app/node_modules
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
-    command: npm run dev
+          cpus: '1.5'
+          memory: 1.5G
     env_file:
       - .env
     environment:
       - PORT=4000
+      - NODE_ENV=development
       - MONGO_URL=mongodb://mongo:27017/paper_trading
       - REDIS_URL=redis://redis:6379
       - CORS_ORIGIN=http://localhost:3000
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
       - TEST_MODE=false
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
     depends_on:
       mongo:
         condition: service_healthy
@@ -63,52 +76,107 @@ services:
 
   # Data Engine Service
   data-engine:
-    build: ./data-engine
+    build:
+      context: ./data-engine
+      dockerfile: Dockerfile.dev
     container_name: trading-data-engine
-    restart: always
+    restart: unless-stopped
     volumes:
-      - ./data-engine:/app
-    # Using default CMD from Dockerfile is fine for python, but mounting lets us restart to see changes
+      - ./data-engine:/app:delegated
+      - data_engine_cache:/root/.cache
     env_file:
       - .env
     environment:
+      - MONGO_URL=mongodb://mongo:27017/paper_trading
       - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
     depends_on:
       redis:
         condition: service_healthy
     networks:
       - trading-net
 
-  # Frontend Service
+  # Strategy Engine Service
+  strategy-engine:
+    build:
+      context: ./data-engine
+      dockerfile: Dockerfile.dev
+    container_name: trading-strategy-engine
+    restart: unless-stopped
+    volumes:
+      - ./data-engine:/app:delegated
+      - strategy_engine_cache:/root/.cache
+    command: python -u strategy_engine.py
+    env_file:
+      - .env
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/paper_trading
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - trading-net
+
+  # Frontend Service (Development Mode with Turbopack)
   frontend:
     build:
       context: ./frontend-nextjs
+      dockerfile: Dockerfile.dev
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000
-        NEXT_PUBLIC_SOCKET_URL: http://localhost:4000
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     container_name: trading-frontend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend-nextjs:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
+      - ./frontend-nextjs/app:/app/app:delegated
+      - ./frontend-nextjs/components:/app/components:delegated
+      - ./frontend-nextjs/context:/app/context:delegated
+      - ./frontend-nextjs/hooks:/app/hooks:delegated
+      - ./frontend-nextjs/lib:/app/lib:delegated
+      - ./frontend-nextjs/public:/app/public:delegated
+      - ./frontend-nextjs/next.config.js:/app/next.config.js:ro
+      - ./frontend-nextjs/tailwind.config.ts:/app/tailwind.config.ts:ro
+      - ./frontend-nextjs/postcss.config.js:/app/postcss.config.js:ro
+      - ./frontend-nextjs/tsconfig.json:/app/tsconfig.json:ro
+      - frontend_node_modules:/app/node_modules
+      - frontend_next_cache:/app/.next
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
     env_file:
       - .env
     environment:
       - PORT=3000
+      - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://localhost:4000
       - NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - NEXT_TELEMETRY_DISABLED=1
     depends_on:
       - backend
     networks:
       - trading-net
+    stdin_open: true
+    tty: true
 
 volumes:
   mongo_data:
-
+  redis_data:
+  backend_node_modules:
+  frontend_node_modules:
+  frontend_next_cache:
+  data_engine_cache:
+  strategy_engine_cache:
 
 networks:
   trading-net:

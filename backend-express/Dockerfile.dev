@@ -1,0 +1,27 @@
+# Development Dockerfile for Express Backend
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
+# Copy package files first for better caching
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --prefer-offline
+
+# Copy source code
+COPY . .
+
+# Set environment variables
+ENV NODE_ENV=development
+ENV CHOKIDAR_USEPOLLING=true
+
+# Expose development port
+EXPOSE 4000
+
+# Development command with nodemon for hot reloading
+CMD ["npm", "run", "dev"]

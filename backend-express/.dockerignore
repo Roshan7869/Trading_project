@@ -1,6 +1,37 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
+
+# Environment files
 .env
-coverage
-.git
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+tests
+
+# Logs
+*.log
+npm-debug.log*
+logs
+
+# Git
+.git
+.gitignore
+
+# Misc
+README.md
+*.md
+LICENSE

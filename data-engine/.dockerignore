@@ -1,6 +1,47 @@
+# Dependencies
 __pycache__
-venv
-.env
-.git
-.DS_Store
 *.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+venv
+env
+.venv
+
+# Environment files
+.env
+.env.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Git
+.git
+.gitignore
+
+# Testing
+tests
+pytest_cache
+.pytest_cache
+.coverage
+htmlcov
+
+# Misc
+README.md
+*.md
+LICENSE

@@ -44,7 +44,14 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   const updatesBuffer = useRef<Map<string, MarketData>>(new Map());
 
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
+    const newSocket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'], // Prefer WebSocket for faster connection
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -86,7 +93,7 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
           return newMap;
         });
       }
-    }, 500);
+    }, 200);
 
     return () => {
       newSocket.disconnect();

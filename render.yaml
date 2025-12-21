@@ -1,0 +1,131 @@
+# ================================================
+# Render.com Blueprint - Paper Trading Platform
+# ================================================
+# This file defines all services for one-click deployment
+# Deploy with: render blueprint apply
+# ================================================
+
+services:
+  # ===================
+  # BACKEND API SERVICE
+  # ===================
+  - type: web
+    name: trading-backend
+    runtime: node
+    region: oregon # Change to your preferred region
+    plan: free # Options: free, starter, standard, pro
+    rootDir: backend-express
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URL
+        sync: false # Set manually in dashboard
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false # Set to frontend URL
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TEST_MODE
+        value: "false"
+
+  # ===================
+  # FRONTEND WEB SERVICE
+  # ===================
+  - type: web
+    name: trading-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: frontend-nextjs
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: trading-backend
+          property: host
+      - key: NEXT_PUBLIC_SOCKET_URL
+        fromService:
+          type: web
+          name: trading-backend
+          property: host
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+  # ===================
+  # DATA ENGINE WORKER
+  # ===================
+  - type: worker
+    name: trading-data-engine
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: data-engine
+    buildCommand: pip install -r requirements.txt
+    startCommand: python market_simulator.py
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: MONGO_URL
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # ===================
+  # STRATEGY ENGINE WORKER
+  # ===================
+  - type: worker
+    name: trading-strategy-engine
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: data-engine
+    buildCommand: pip install -r requirements.txt
+    startCommand: python strategy_engine.py
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: MONGO_URL
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+# ================================================
+# NOTES:
+# ================================================
+# 1. After deploying, set the following manually in Render dashboard:
+#    - MONGO_URL: Your MongoDB Atlas connection string
+#    - REDIS_URL: Your Upstash/Redis Cloud URL
+#    - CLERK_SECRET_KEY: Your Clerk secret key
+#    - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: Your Clerk publishable key
+#    - ENCRYPTION_KEY: Generate with: openssl rand -base64 32
+#    - CORS_ORIGIN: Your frontend URL (e.g., https://trading-frontend.onrender.com)
+#
+# 2. Update NEXT_PUBLIC_API_URL format after deployment:
+#    - Change from host reference to actual URL: https://trading-backend.onrender.com
+#
+# 3. Configure Clerk redirect URLs in dashboard:
+#    - Add: https://your-frontend.onrender.com
+#    - Add: https://your-frontend.onrender.com/login
+#    - Add: https://your-frontend.onrender.com/register
+# ================================================

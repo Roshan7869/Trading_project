@@ -182,6 +182,7 @@ const connectRedis = async () => {
 
         logger.info('✅ Redis subscriber connected');
 
+        // Market Data Subscription
         await redisSubscriber.subscribe('market_ticks', (message) => {
             try {
                 if (mongoose.connection.readyState !== 1) return;
@@ -194,6 +195,43 @@ const connectRedis = async () => {
                 logger.error(`Error parsing market data: ${error}`);
             }
         });
+
+        // Algo Strategy Subscription
+        await redisSubscriber.subscribe('order_signals', async (message) => {
+            try {
+                if (mongoose.connection.readyState !== 1) return;
+
+                const signal = JSON.parse(message);
+                logger.info(`🤖 Algo Signal Received: ${signal.type} ${signal.symbol} @ ${signal.price}`);
+
+                // Execute logic
+                // 1. Find a valid account (Use the first found limit for now, or specific 'ALGO' account)
+                const account = await import('./models/Account').then(m => m.default.findOne());
+
+                if (!account) {
+                    logger.warn('⚠️ No account found to execute Algo Strategy order.');
+                    return;
+                }
+
+                // 2. Place Order
+                await paperTradingEngine.placeOrder({
+                    accountId: account._id.toString(),
+                    symbolName: signal.symbol,
+                    scriptToken: signal.symbol, // Using symbol as token for algo trades if mapping unavailable
+                    exchange: 'NSE',
+                    transactionType: signal.type,
+                    orderType: 'MARKET',
+                    quantity: signal.quantity,
+                    price: signal.price
+                });
+
+                logger.info(`✅ Algo Trade Executed for ${signal.symbol}`);
+
+            } catch (error) {
+                logger.error(`❌ Error executing Algo Signal: ${error}`);
+            }
+        });
+
     } catch (err: any) {
         logger.warn(`⚠️ Redis connection failed/timed out, switching to MOCK data: ${err.message}`);
         // If connection failed, ensure we're disconnected to stop retries if client is active

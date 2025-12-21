@@ -69,7 +69,7 @@ class AsyncRedisPublisher:
         redis_url: str = 'redis://localhost:6379',
         channel: str = 'market_ticks',
         queue_size: int = 10000,
-        batch_size: int = 1,  # 1 = publish immediately, >1 = batch mode
+        batch_size: int = 10,  # 1 = publish immediately, >1 = batch mode
         batch_timeout_ms: int = 50,  # Max wait before publishing batch
     ):
         self.redis_url = redis_url
