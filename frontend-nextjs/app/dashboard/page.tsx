@@ -383,6 +383,10 @@ export default function DashboardPage() {
         quantity={orderModal.quantity!}
         price={orderModal.price!}
         totalAmount={(orderModal.quantity || 0) * (orderModal.price || 0)}
+        availableBalance={portfolio?.walletBalance || 0}
+        marketPrice={orderModal.price}
+        change={marketData.get(orderModal.symbol || '')?.change || 0}
+        changePercent={marketData.get(orderModal.symbol || '')?.change || 0}
       />
     </div>
   );

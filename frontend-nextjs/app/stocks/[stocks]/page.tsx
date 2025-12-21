@@ -244,6 +244,10 @@ export default function StockDetailPage({ params }: { params: Promise<{ symbol: 
                 price={price}
                 totalAmount={totalAmount}
                 holdings={holdings}
+                availableBalance={user?.walletBalance || 0}
+                marketPrice={price}
+                change={stockData?.change || 0}
+                changePercent={change}
             />
         </div>
     )
