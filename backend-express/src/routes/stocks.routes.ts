@@ -173,7 +173,9 @@ router.get('/search', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/stocks/:ticker/history
+ * GET/POST /api/stocks/:ticker/history
+ * GET: Basic OHLCV data
+ * POST: OHLCV + user-selected indicators
  */
 router.get('/:ticker/history', async (req: Request, res: Response) => {
     const ticker = req.params.ticker.toUpperCase();
@@ -190,12 +192,42 @@ router.get('/:ticker/history', async (req: Request, res: Response) => {
             timeout: 10000
         });
 
-        await redisService.set(cacheKey, response.data, 300); // Historical data can be cached longer (5m)
+        await redisService.set(cacheKey, response.data, 300);
         return res.json(response.data);
     } catch (error: any) {
         return res.json(generateSimulatedHistory(ticker, period, interval));
     }
 });
+
+// POST handler for user-selected indicators
+router.post('/:ticker/history', async (req: Request, res: Response) => {
+    const ticker = req.params.ticker.toUpperCase();
+    const period = req.query.period as string || '1mo';
+    const interval = req.query.interval as string || '1d';
+    const selectedIndicators = req.body?.selectedIndicators || [];
+
+    try {
+        // Forward POST to yfinance API with selectedIndicators
+        const response = await axios.post(
+            `${YFINANCE_API_URL}/api/stocks/${ticker}/history?period=${period}&interval=${interval}`,
+            { selectedIndicators },
+            { timeout: 15000 }
+        );
+        return res.json(response.data);
+    } catch (error: any) {
+        logger.warn(`History POST failed for ${ticker}: ${error.message}`);
+        // Fallback to simulated data
+        return res.json({
+            symbol: ticker,
+            period,
+            interval,
+            ohlcv: generateSimulatedHistory(ticker, period, interval).data,
+            indicators: { overlays: {}, panes: {} },
+            count: 0
+        });
+    }
+});
+
 
 /**
  * GET /api/stocks/:ticker

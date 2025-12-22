@@ -14,15 +14,29 @@ import threading
 import time
 from logzero import logger
 import redis
+import requests_cache
+import requests
 import os
+from optimization_engine import OptimizationEngine
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000", "http://localhost:4000"])
 
 # Configuration
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
-CACHE_DURATION = 30  # Reduced to 30 seconds for fresher data
-UPDATE_INTERVAL = 10  # Reduced to 10 seconds for faster market updates
+CACHE_DURATION = 30  
+UPDATE_INTERVAL = 10 
+
+# Configure yfinance with custom session to avoid 429 errors
+# Configure session
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
+
+# Initialize Optimization Engine with custom session
+opt_engine = OptimizationEngine(session=session)
+
 
 # In-memory cache
 cache = {}
@@ -84,7 +98,7 @@ def fetch_stock_data(ticker: str) -> dict:
     """Fetch stock data from Yahoo Finance."""
     try:
         yf_symbol = get_yf_symbol(ticker)
-        stock = yf.Ticker(yf_symbol)
+        stock = yf.Ticker(yf_symbol, session=session)
         info = stock.info
         
         if not info or 'regularMarketPrice' not in info:
@@ -207,42 +221,73 @@ def get_stock(ticker):
         return jsonify({'error': f'Stock {ticker} not found'}), 404
 
 
-@app.route('/api/stocks/<ticker>/history', methods=['GET'])
+@app.route('/api/stocks/<ticker>/history', methods=['GET', 'POST'])
 def get_history(ticker):
-    """Get historical OHLCV data."""
-    period = request.args.get('period', '1mo')  # 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, max
-    interval = request.args.get('interval', '1d')  # 1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo
+    """Get historical OHLCV data with user-selected indicators only."""
+    period = request.args.get('period', '1mo')
+    interval = request.args.get('interval', '1d')
+    
+    # Get selected indicators from POST body (empty = price only, no indicators)
+    selected_indicators = []
+    if request.method == 'POST':
+        body = request.get_json() or {}
+        selected_indicators = body.get('selectedIndicators', [])
     
     try:
         yf_symbol = get_yf_symbol(ticker)
-        stock = yf.Ticker(yf_symbol)
-        historical = stock.history(period=period, interval=interval)
+        
+        # Use Optimization Engine for incremental fetch
+        # This handles caching (Memory/SQLite) and rate limiting
+        historical = opt_engine.fetch_incremental(yf_symbol, interval=interval, period=period)
         
         if historical.empty:
             return jsonify({'error': 'No historical data found'}), 404
         
-        # Convert to JSON-serializable format
-        result = []
+        # Calculate ONLY the user-selected indicators
+        from indicator_service import IndicatorService
+        indicator_data = {'overlays': {}, 'panes': {}}
+        
+        if selected_indicators:
+            indicator_data = IndicatorService.calculate_selected(historical, selected_indicators)
+        
+        # Convert OHLCV to JSON format
+        ohlcv = []
+        # historical is already standardized by engine
+        # But ensure columns are lower case for processing if needed or access directly
+        historical.columns = [col.lower() for col in historical.columns]
+        
         for date, row in historical.iterrows():
-            result.append({
+            ohlcv.append({
                 'date': str(date),
-                'open': round(float(row['Open']), 2),
-                'high': round(float(row['High']), 2),
-                'low': round(float(row['Low']), 2),
-                'close': round(float(row['Close']), 2),
-                'volume': int(row['Volume'])
+                'open': round(float(row['open']), 2) if pd.notnull(row['open']) else None,
+                'high': round(float(row['high']), 2) if pd.notnull(row['high']) else None,
+                'low': round(float(row['low']), 2) if pd.notnull(row['low']) else None,
+                'close': round(float(row['close']), 2) if pd.notnull(row['close']) else None,
+                'volume': int(row['volume']) if pd.notnull(row['volume']) else None
             })
         
         return jsonify({
             'symbol': ticker.upper(),
             'period': period,
             'interval': interval,
-            'data': result
+            'ohlcv': ohlcv,
+            'indicators': indicator_data,
+            'count': len(ohlcv)
         })
     
     except Exception as e:
         logger.error(f"History error for {ticker}: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/indicators/available', methods=['GET'])
+def get_available_indicators():
+    """Return list of all available indicators with their metadata."""
+    from indicator_service import IndicatorService
+    return jsonify({
+        'indicators': IndicatorService.get_available_indicators()
+    })
+
 
 
 @app.route('/api/stocks/batch', methods=['POST'])
@@ -439,70 +484,78 @@ def health_check():
 
 # ============== BACKGROUND TASKS ==============
 
-def update_watchlist_cache():
-    """Background task to update watchlist stocks and publish to Redis."""
-    logger.info("[BG] Starting watchlist update...")
+def update_watchlist_task():
+    """Scheduled task to update watchlist via OptimizationEngine"""
+    logger.info("[BG] Updating watchlist via OptimizationEngine...")
     
     all_symbols = [get_local_symbol(s) for s in INDIAN_WATCHLIST]
-    results = fetch_batch_quotes(all_symbols)
+    yf_symbols = [get_yf_symbol(s) for s in all_symbols]
     
-    # If yfinance fails, generate simulated data as fallback
-    if not results:
-        logger.warning("[BG] YFinance fetch failed, using simulated data")
-        import random
-        for symbol in all_symbols:
-            base_price = random.uniform(100, 3000)
-            change = random.uniform(-50, 50)
-            results[symbol] = {
-                'symbol': symbol,
-                'price': round(base_price, 2),
-                'change': round(change, 2),
-                'changePercent': round((change / base_price) * 100, 2),
-                'previousClose': round(base_price - change, 2),
-                'volume': random.randint(100000, 10000000),
-                'timestamp': datetime.now().isoformat(),
-                'source': 'simulated'
-            }
+    # 1. Fetch data concurrently
+    # We fetch 2d history to get change%
+    results = opt_engine.fetch_concurrent(yf_symbols, period='2d', interval='1d')
     
-    for symbol, data in results.items():
-        # Update cache
-        cache[symbol] = {
-            'data': data,
-            'timestamp': datetime.now()
-        }
+    updated_count = 0
+    for yf_sym, df in results.items():
+        if df is None or df.empty:
+            continue
+            
+        local_sym = get_local_symbol(yf_sym)
         
-        # Publish to Redis
-        if REDIS_CONNECTED and redis_client:
-            try:
+        # Calculate quote data from history
+        try:
+            current = df.iloc[-1]
+            prev = df.iloc[-2] if len(df) > 1 else current
+            
+            price = float(current['Close'])
+            prev_close = float(prev['Close'])
+            change = price - prev_close
+            change_pct = (change / prev_close * 100) if prev_close else 0
+            
+            data = {
+                'symbol': local_sym,
+                'price': round(price, 2),
+                'change': round(change, 2),
+                'changePercent': round(change_pct, 2),
+                'volume': int(current['Volume']),
+                'timestamp': datetime.now().isoformat(),
+                'source': 'yfinance_optimized'
+            }
+            
+            # Update legacy cache for /api/stocks/<ticker> endpoint
+            cache[local_sym] = {
+                'data': data,
+                'timestamp': datetime.now()
+            }
+            
+            # Publish to Redis
+            if REDIS_CONNECTED and redis_client:
                 tick = {
-                    'symbol': symbol,
+                    'symbol': local_sym,
                     'price': data['price'],
                     'change': data['changePercent'],
-                    'volume': data['volume'],
-                    'timestamp': data['timestamp'],
-                    'source': data.get('source', 'yfinance')
+                    'timestamp': data['timestamp']
                 }
                 redis_client.publish('market_ticks', json.dumps(tick))
-            except Exception as e:
-                logger.error(f"Redis publish error: {e}")
-    
-    logger.info(f"[BG] Updated {len(results)} stocks")
-
-
-def background_updater():
-    """Background thread for continuous updates."""
-    while True:
-        try:
-            update_watchlist_cache()
+            
+            updated_count += 1
+            
         except Exception as e:
-            logger.error(f"Background update error: {e}")
-        
-        time.sleep(UPDATE_INTERVAL)
+            logger.error(f"Error processing {local_sym}: {e}")
 
+    logger.info(f"[BG] Updated {updated_count} stocks")
 
-# Start background updater
-bg_thread = threading.Thread(target=background_updater, daemon=True)
-bg_thread.start()
+# Schedule job securely
+opt_engine.scheduler.add_job(
+    update_watchlist_task, 
+    'interval', 
+    seconds=UPDATE_INTERVAL, 
+    id='watchlist_update',
+    replace_existing=True
+)
+
+# No manual thread needed - APScheduler handles it
+
 
 
 if __name__ == '__main__':
