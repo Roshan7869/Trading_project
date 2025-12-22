@@ -98,7 +98,7 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
     const fetchBrokers = async () => {
         let brokers: Broker[] = [];
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/broker/available`);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/broker/available`);
             if (response.ok) {
                 const data = await response.json();
                 brokers = data.brokers || [];
@@ -175,7 +175,7 @@ export const BrokerSetupModal: React.FC<BrokerSetupModalProps> = ({ isOpen, onCl
         try {
             const userId = localStorage.getItem('userId') || 'guest_user';
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/broker/connect`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/broker/connect`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

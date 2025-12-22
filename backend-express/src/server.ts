@@ -22,8 +22,10 @@ import accountRoutes from './routes/accounts';
 import settingsRoutes from './routes/settings';
 import brokerRoutes from './routes/broker.routes';
 import marketRoutes from './routes/market.routes';
+import stocksRoutes from './routes/stocks.routes';
 import { marketDataService } from './services/MarketDataService';
 import { paperTradingEngine } from './services/PaperTradingEngine';
+import { getTokenFromSymbol } from './utils/symbolMapper';
 import { cacheService } from './services/CacheService';
 import { redisService } from './services/RedisService';
 import { globalErrorHandler } from './middleware/errorHandler';
@@ -77,6 +79,7 @@ app.use('/api/accounts', accountRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/broker', brokerRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/stocks', stocksRoutes);
 
 // Health check with cache metrics
 app.get('/api/health', async (req, res) => {
@@ -202,30 +205,38 @@ const connectRedis = async () => {
                 if (mongoose.connection.readyState !== 1) return;
 
                 const signal = JSON.parse(message);
-                logger.info(`🤖 Algo Signal Received: ${signal.type} ${signal.symbol} @ ${signal.price}`);
+                const { symbol, type, quantity, price } = signal;
+                logger.info(`🤖 Algo Signal Received: ${type} ${symbol} @ ${price}`);
 
-                // Execute logic
-                // 1. Find a valid account (Use the first found limit for now, or specific 'ALGO' account)
-                const account = await import('./models/Account').then(m => m.default.findOne());
-
-                if (!account) {
-                    logger.warn('⚠️ No account found to execute Algo Strategy order.');
+                // 1. Resolve Token and Symbol Info
+                const scriptToken = getTokenFromSymbol(symbol);
+                if (!scriptToken) {
+                    logger.warn(`⚠️ Skipping Algo Signal: Unsupported symbol ${symbol}`);
                     return;
                 }
 
-                // 2. Place Order
+                // 2. Find/Create Account for Algo Trades
+                // We'll use the first active account found, or create a default one for a 'system' user context
+                const account = await mongoose.model('Account').findOne({ status: 'ACTIVE' });
+
+                if (!account) {
+                    logger.warn('⚠️ No active account found to execute Algo Strategy order.');
+                    return;
+                }
+
+                // 3. Place Order via PaperTradingEngine
                 await paperTradingEngine.placeOrder({
                     accountId: account._id.toString(),
-                    symbolName: signal.symbol,
-                    scriptToken: signal.symbol, // Using symbol as token for algo trades if mapping unavailable
+                    symbolName: symbol.toUpperCase(),
+                    scriptToken: scriptToken,
                     exchange: 'NSE',
-                    transactionType: signal.type,
+                    transactionType: type,
                     orderType: 'MARKET',
-                    quantity: signal.quantity,
-                    price: signal.price
+                    quantity: quantity || 10,
+                    price: price
                 });
 
-                logger.info(`✅ Algo Trade Executed for ${signal.symbol}`);
+                logger.info(`✅ Algo Trade Executed: ${type} ${quantity} ${symbol} for account ${account.accountName}`);
 
             } catch (error) {
                 logger.error(`❌ Error executing Algo Signal: ${error}`);

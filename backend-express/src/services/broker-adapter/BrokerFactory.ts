@@ -44,21 +44,21 @@ export class BrokerFactory {
             {
                 name: 'KOTAK_NEO',
                 displayName: 'Kotak Neo',
-                logo: '/logos/kotak-neo.png',
+                logo: '/brokers/kotak-neo.png',
                 features: ['Zero Brokerage', 'Ultra-Low Latency', 'NSE/BSE/NFO'],
                 requiredFields: ['consumerKey', 'consumerSecret', 'clientId', 'mpin', 'mobile', 'totpSecret']
             },
             {
                 name: 'ANGEL_ONE',
                 displayName: 'Angel One',
-                logo: '/logos/angel-one.png',
+                logo: '/brokers/angel-one.jpg',
                 features: ['Fast Execution', 'Bracket Orders', 'Easy Integration'],
                 requiredFields: ['clientCode', 'apiPassword', 'brokerApiKey', 'totpSecret']
             },
             {
                 name: 'ZERODHA_KITE',
                 displayName: 'Zerodha Kite',
-                logo: '/logos/zerodha.png',
+                logo: '/brokers/zerodha.png',
                 features: ['Largest Broker', 'Rich Ecosystem', 'WebSocket Support'],
                 requiredFields: ['apiKey', 'apiSecret', 'clientId', 'password', 'totpSecret']
             }

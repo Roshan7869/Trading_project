@@ -8,9 +8,15 @@ websocket-client==1.7.0
 # kiteconnect - Optional: pip install kiteconnect (requires OpenSSL dev libraries)
 pydantic==1.10.13
 flask==3.0.0
+flask-cors==4.0.0
 prometheus-client==0.19.0
 cryptography==41.0.7
 pymongo==4.6.1
 motor==3.3.2
 aiohttp==3.9.1
 websockets==12.0
+yfinance==0.2.36
+pandas==2.1.4
+apscheduler==3.10.4
+numpy==1.26.2
+requests==2.31.0

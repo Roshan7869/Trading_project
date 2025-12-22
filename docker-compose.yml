@@ -56,6 +56,9 @@ services:
           memory: 1.5G
     env_file:
       - .env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - PORT=4000
       - NODE_ENV=development
@@ -66,6 +69,7 @@ services:
       - TEST_MODE=false
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
+      - YFINANCE_API_URL=http://yfinance-api:5001
     depends_on:
       mongo:
         condition: service_healthy
@@ -80,7 +84,7 @@ services:
     networks:
       - trading-net
 
-  # Data Engine Service
+  # Data Engine Service (YFinance Mode - No Broker API)
   data-engine:
     build:
       context: ./data-engine
@@ -90,8 +94,40 @@ services:
     volumes:
       - ./data-engine:/app:delegated
       - data_engine_cache:/root/.cache
+    command: python -u market_simulator.py --mode=yfinance
     env_file:
       - .env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/paper_trading
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - trading-net
+
+  # YFinance Stock API Service
+  yfinance-api:
+    build:
+      context: ./data-engine
+      dockerfile: Dockerfile.dev
+    container_name: trading-yfinance-api
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./data-engine:/app:delegated
+    command: python -u yfinance_api.py
+    env_file:
+      - .env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - MONGO_URL=mongodb://mongo:27017/paper_trading
       - REDIS_URL=redis://redis:6379
@@ -116,6 +152,9 @@ services:
     command: python -u strategy_engine.py
     env_file:
       - .env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - MONGO_URL=mongodb://mongo:27017/paper_trading
       - REDIS_URL=redis://redis:6379
@@ -158,6 +197,9 @@ services:
           memory: 2G
     env_file:
       - .env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - PORT=3000
       - NODE_ENV=development

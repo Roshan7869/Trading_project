@@ -15,13 +15,14 @@ export class OrderController {
         try {
             // @ts-ignore - userId attached by middleware
             const userId = (req as any).userId;
-            const { symbol, type, quantity, price } = req.body;
+            const { symbol, type, quantity, price, orderType } = req.body;
 
             const result = await orderService.placeSimpleOrder(userId, {
                 symbol,
                 type,
                 quantity,
-                price
+                price,
+                orderType
             });
 
             if (result.success) {
@@ -78,6 +79,24 @@ export class OrderController {
             res.json({ orders });
         } catch (error: any) {
             res.status(500).json({ message: error.message });
+        }
+    }
+
+    async cancelOrder(req: Request, res: Response) {
+        try {
+            // @ts-ignore
+            const userId = (req as any).userId;
+            const { orderId } = req.params;
+
+            const result = await orderService.cancelOrder(userId, orderId);
+
+            if (result.success) {
+                res.status(200).json(result);
+            } else {
+                res.status(400).json(result);
+            }
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 }

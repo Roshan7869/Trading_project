@@ -1,13 +1,17 @@
 """
 Paper Trading Platform - Market Data Engine
 
-Supports two modes:
-1. LIVE mode: Real-time market data from Angel One SmartAPI
-2. SIMULATE mode: Random walk simulation (fallback/testing)
+Supports multiple modes:
+1. YFINANCE mode: Real-time market data from Yahoo Finance (DEFAULT)
+2. HYBRID mode: Broker API primary, YFinance fallback
+3. LIVE mode: Real-time market data from Broker APIs (Angel One, Kotak, Zerodha)
+4. SIMULATE mode: Random walk simulation (fallback/testing)
 
 Usage:
-    python market_simulator.py                    # Auto-detect mode
-    python market_simulator.py --mode=live        # Force live mode
+    python market_simulator.py                    # Auto-detect (defaults to yfinance)
+    python market_simulator.py --mode=yfinance    # Force Yahoo Finance mode
+    python market_simulator.py --mode=hybrid      # Broker + YFinance fallback
+    python market_simulator.py --mode=live        # Force broker API mode
     python market_simulator.py --mode=simulate    # Force simulation mode
 """
 
@@ -76,7 +80,7 @@ def generate_price_change(current_price: float) -> tuple[float, float]:
 def run_simulation_mode(symbol_manager=None):
     """
     Run in simulation mode - generates random market data.
-    Used as fallback when Angel One API is not available.
+    Used as fallback when no data source is available.
     """
     logger.info('[SIM] Starting market data simulation...')
     logger.info(f'Publishing to channel: {Config.MARKET_TICKS_CHANNEL}')
@@ -138,6 +142,41 @@ def run_simulation_mode(symbol_manager=None):
         symbol_manager.stop_watch()
 
 
+def run_yfinance_mode(symbol_manager=None):
+    """
+    Run with Yahoo Finance as data source.
+    Provides real Indian market data without broker API.
+    """
+    from yfinance_provider import YFinanceDataProvider, get_nifty50_symbols
+    
+    logger.info('[YFINANCE] Starting Yahoo Finance data provider...')
+    logger.info(f'Publishing to channel: {Config.MARKET_TICKS_CHANNEL}')
+    logger.info('-' * 50)
+    
+    # Get symbols to stream
+    if symbol_manager:
+        symbols = symbol_manager.get_active_symbols()
+    else:
+        symbols = get_nifty50_symbols()[:20]  # Top 20 stocks
+    
+    logger.info(f'[YFINANCE] Streaming {len(symbols)} symbols: {", ".join(symbols[:5])}...')
+    
+    # Create yfinance provider
+    yf_provider = YFinanceDataProvider(redis_client, Config.MARKET_TICKS_CHANNEL)
+    
+    try:
+        # Start streaming (polling mode)
+        yf_provider.start_streaming(symbols, interval=10.0)  # 10 second interval
+        
+        # Keep main thread alive
+        while True:
+            time.sleep(1)
+            
+    except KeyboardInterrupt:
+        logger.info('[STOP] Stopping Yahoo Finance provider...')
+    finally:
+        yf_provider.stop_streaming()
+
 
 def run_live_mode():
     """
@@ -170,8 +209,51 @@ def run_live_mode():
         logger.info('[STOP] Stopping session manager...')
     except Exception as e:
         logger.exception(f'Live mode error: {e}')
-        logger.info('Falling back to simulation mode...')
-        run_simulation_mode()
+        logger.info('Falling back to Yahoo Finance mode...')
+        run_yfinance_mode()
+
+
+def run_hybrid_mode(symbol_manager=None):
+    """
+    Run in hybrid mode - Broker API primary, YFinance fallback.
+    This is the recommended mode for production.
+    """
+    from hybrid_data_provider import HybridDataProvider
+    
+    logger.info('[HYBRID] Starting Hybrid Data Provider...')
+    logger.info('Primary: Broker API | Fallback: Yahoo Finance')
+    logger.info('-' * 50)
+    
+    # Get symbols
+    if symbol_manager:
+        symbols = symbol_manager.get_active_symbols()
+    else:
+        from yfinance_provider import get_nifty50_symbols
+        symbols = get_nifty50_symbols()[:20]
+    
+    # Create hybrid provider
+    hybrid = HybridDataProvider(redis_client, Config.MARKET_TICKS_CHANNEL)
+    
+    logger.info(f'[HYBRID] Active source: {hybrid.get_current_source()}')
+    
+    try:
+        # Start streaming (will use yfinance by default until broker connects)
+        hybrid.start_streaming(symbols, interval=10.0)
+        
+        # Keep main thread alive and log status periodically
+        tick = 0
+        while True:
+            time.sleep(10)
+            tick += 1
+            if tick % 6 == 0:  # Every minute
+                status = hybrid.get_status()
+                logger.info(f'[HYBRID] Source: {status["activeSource"]} | Streaming: {status["isStreaming"]}')
+            
+    except KeyboardInterrupt:
+        logger.info('[STOP] Stopping hybrid provider...')
+    finally:
+        hybrid.stop_streaming()
+
 
 
 
@@ -180,9 +262,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Paper Trading Market Data Engine')
     parser.add_argument(
         '--mode',
-        choices=['live', 'simulate', 'auto'],
+        choices=['live', 'simulate', 'yfinance', 'hybrid', 'auto'],
         default='auto',
-        help='Data source mode: live (Angel One), simulate (random walk), auto (detect)'
+        help='''Data source mode:
+            live (Broker API), 
+            simulate (random walk), 
+            yfinance (Yahoo Finance real data),
+            hybrid (Broker API + YFinance fallback),
+            auto (detect best available)'''
     )
     return parser.parse_args()
 
@@ -201,7 +288,7 @@ def main():
     print('=' * 60)
     print('[*] Paper Trading Platform - Market Data Engine')
     print('=' * 60)
-    print(f'Mode: {Config.get_mode_description()}')
+    print(f'Mode: {args.mode.upper()}')
     print(f'Stocks: {", ".join(get_all_symbols())}')
     print('=' * 60)
 
@@ -210,7 +297,7 @@ def main():
     
     # Validate infrastructure for multi-user mode
     infra_valid, missing_infra = Config.validate_infrastructure()
-    if not infra_valid and args.mode != 'simulate':
+    if not infra_valid and args.mode not in ['simulate', 'yfinance']:
         logger.warning(f'Infrastructure not fully configured: {missing_infra}')
         logger.info('Tip: Set REDIS_URL, MONGO_URL, and ENCRYPTION_KEY in .env')
     
@@ -220,11 +307,11 @@ def main():
     if mode == 'auto':
         # Auto-detect based on infrastructure availability
         if Config.is_live_mode_available():
-            logger.info('Infrastructure ready - using LIVE (Multi-User) mode')
-            mode = 'live'
+            logger.info('Broker credentials found - using HYBRID mode')
+            mode = 'hybrid'
         else:
-            logger.info('Infrastructure not ready - using SIMULATE mode')
-            mode = 'simulate'
+            logger.info('No broker credentials - using YFINANCE mode for real market data')
+            mode = 'yfinance'
     
     try:
         # Check Redis connection
@@ -242,6 +329,10 @@ def main():
     try:
         if mode == 'live':
             run_live_mode()
+        elif mode == 'yfinance':
+            run_yfinance_mode()
+        elif mode == 'hybrid':
+            run_hybrid_mode()
         else:
             run_simulation_mode()
     except Exception as e:
@@ -253,3 +344,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

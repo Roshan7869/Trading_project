@@ -6,6 +6,9 @@ import {
     CategoryScale,
     LinearScale,
     TimeScale,
+    PointElement,
+    LineElement,
+    LineController,
     Tooltip,
     Legend,
 } from 'chart.js';
@@ -13,12 +16,20 @@ import { CandlestickController, CandlestickElement, OhlcController, OhlcElement 
 import 'chartjs-adapter-luxon';
 import { Chart } from 'react-chartjs-2';
 import { useMarket } from '@/context/MarketContext';
+import { api } from '@/lib/api';
+// Note: api from lib/api adds auth headers, but here we might just use fetch or api.get
+// Ideally use api.get to be safe, but stocks routes are public or authenticated?
+// stocks.routes.ts routes are public (no authenticateToken middleware in the file), assuming global or none.
+// Actually stocks.routes.ts uses router.get(...) without middleware.
 
 // Register Chart.js components
 ChartJS.register(
     CategoryScale,
     LinearScale,
     TimeScale,
+    PointElement,
+    LineElement,
+    LineController,
     CandlestickController,
     CandlestickElement,
     OhlcController,
@@ -41,93 +52,122 @@ interface CandlestickChartProps {
     height?: number;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const TIMEFRAMES = [
+    { label: '1D', period: '1d', interval: '5m' },
+    { label: '1W', period: '5d', interval: '15m' },
+    { label: '1M', period: '1mo', interval: '1d' },
+    { label: '1Y', period: '1y', interval: '1d' },
+    { label: '5Y', period: '5y', interval: '1wk' },
+];
 
 export default function CandlestickChart({ symbol, height = 400 }: CandlestickChartProps) {
     const [candles, setCandles] = useState<ICandle[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [activeTimeframe, setActiveTimeframe] = useState(TIMEFRAMES[0]);
+
     const { marketData, connected } = useMarket();
     const chartRef = useRef<any>(null);
 
-    // Fetch historical candles on mount
+    // Fetch historical candles
     useEffect(() => {
         const fetchHistory = async () => {
             try {
                 setLoading(true);
                 setError(null);
-                const res = await fetch(`${API_URL}/api/market/history/${symbol}?limit=100`);
-                if (!res.ok) {
-                    if (res.status === 404) {
-                        // No data yet, will populate from live stream
-                        setCandles([]);
-                        setLoading(false);
-                        return;
+
+                // Use the stocks proxy route
+                const res = await api.get(`/api/stocks/${symbol}/history`, {
+                    params: {
+                        period: activeTimeframe.period,
+                        interval: activeTimeframe.interval
                     }
-                    throw new Error('Failed to fetch historical data');
+                });
+
+                const rawData = res.data.data; // { date, open, high... }
+
+                if (Array.isArray(rawData)) {
+                    const mapped = rawData.map((c: any) => ({
+                        x: new Date(c.date).getTime(),
+                        o: c.open,
+                        h: c.high,
+                        l: c.low,
+                        c: c.close,
+                        v: c.volume
+                    }));
+                    setCandles(mapped);
+                } else {
+                    setCandles([]);
                 }
-                const data = await res.json();
-                setCandles(data.candles || []);
+
             } catch (err: any) {
-                setError(err.message);
+                console.error("Chart fetch error:", err);
+                if (err.response?.status === 404) {
+                    setCandles([]);
+                } else {
+                    setError('Failed to load chart data');
+                }
             } finally {
                 setLoading(false);
             }
         };
 
         fetchHistory();
-    }, [symbol]);
+    }, [symbol, activeTimeframe]);
 
-    // Update current candle from live market data
+    // Live updates (Only for Intraday '1D' or '1W' views where valid)
+    const isIntraday = activeTimeframe.label === '1D' || activeTimeframe.label === '1W';
+
     useEffect(() => {
+        if (!isIntraday || !connected) return;
+
         const liveData = marketData.get(symbol);
         if (!liveData) return;
 
         const now = Date.now();
-        const minuteStart = Math.floor(now / 60000) * 60000;
+        // Determine candle interval in ms based on timeframe
+        // 5m = 300000, 15m = 900000. 
+        // Simply parsing interval format:
+        const intervalMap: Record<string, number> = {
+            '1m': 60000,
+            '5m': 300000,
+            '15m': 900000,
+            '1h': 3600000
+        };
+        const intervalMs = intervalMap[activeTimeframe.interval] || 60000;
+
+        const candleStart = Math.floor(now / intervalMs) * intervalMs;
 
         setCandles((prev) => {
-            if (prev.length === 0) {
-                // Start first candle
-                return [{
-                    x: minuteStart,
-                    o: liveData.price,
-                    h: liveData.price,
-                    l: liveData.price,
-                    c: liveData.price,
-                    v: liveData.volume || 0
-                }];
-            }
+            if (prev.length === 0) return prev;
 
             const updated = [...prev];
             const lastCandle = updated[updated.length - 1];
 
-            if (lastCandle.x === minuteStart) {
-                // Update current candle
+            // If last candle timestamp matches current interval window
+            if (lastCandle.x === candleStart) {
+                // Update
                 lastCandle.h = Math.max(lastCandle.h, liveData.price);
                 lastCandle.l = Math.min(lastCandle.l, liveData.price);
                 lastCandle.c = liveData.price;
                 lastCandle.v += liveData.volume || 0;
-            } else {
-                // New minute - close previous and start new
+            } else if (lastCandle.x < candleStart) {
+                // New Candle
                 updated.push({
-                    x: minuteStart,
+                    x: candleStart,
                     o: liveData.price,
                     h: liveData.price,
                     l: liveData.price,
                     c: liveData.price,
-                    v: liveData.volume || 0
+                    v: 0
                 });
-
-                // Keep max 200 candles
-                if (updated.length > 200) {
-                    updated.shift();
-                }
+                // Keep limit?
+                if (updated.length > 500) updated.shift();
             }
 
             return updated;
         });
-    }, [marketData, symbol]);
+    }, [marketData, symbol, isIntraday, connected, activeTimeframe]);
 
     // Calculate EMA
     const calculateEMA = useCallback((prices: number[], period: number): (number | null)[] => {
@@ -136,9 +176,8 @@ export default function CandlestickChart({ symbol, height = 400 }: CandlestickCh
 
         const k = 2 / (period + 1);
         let sum = 0;
-        for (let i = 0; i < period; i++) {
-            sum += prices[i];
-        }
+        for (let i = 0; i < period; i++) sum += prices[i];
+
         let prevEma = sum / period;
         ema.push(prevEma);
 
@@ -146,11 +185,9 @@ export default function CandlestickChart({ symbol, height = 400 }: CandlestickCh
             prevEma = prices[i] * k + prevEma * (1 - k);
             ema.push(prevEma);
         }
-
         return ema;
     }, []);
 
-    // Prepare chart data
     const chartData = {
         datasets: [
             {
@@ -162,24 +199,14 @@ export default function CandlestickChart({ symbol, height = 400 }: CandlestickCh
                     l: c.l,
                     c: c.c,
                 })),
-                borderColor: '#333',
+                borderColor: '#6b7280',
                 color: {
-                    up: '#22c55e',
-                    down: '#ef4444',
+                    up: '#10b981', // green-500
+                    down: '#ef4444', // red-500
                     unchanged: '#6b7280',
                 },
-            },
-            {
-                label: 'EMA(10)',
-                type: 'line' as const,
-                data: calculateEMA(candles.map((c) => c.c), 10).map((val, idx) =>
-                    val !== null ? { x: candles[idx]?.x, y: val } : null
-                ).filter(Boolean),
-                borderColor: '#3b82f6',
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                tension: 0.1,
+                barThickness: 'flex',
+                barPercentage: 0.9,
             },
             {
                 label: 'EMA(20)',
@@ -187,112 +214,103 @@ export default function CandlestickChart({ symbol, height = 400 }: CandlestickCh
                 data: calculateEMA(candles.map((c) => c.c), 20).map((val, idx) =>
                     val !== null ? { x: candles[idx]?.x, y: val } : null
                 ).filter(Boolean),
-                borderColor: '#f59e0b',
-                borderWidth: 2,
+                borderColor: '#fbbf24', // amber-400
+                borderWidth: 1.5,
                 pointRadius: 0,
-                fill: false,
-                tension: 0.1,
-            },
+                tension: 0.2,
+            }
         ],
     };
 
     const options = {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { duration: 0 },
         scales: {
             x: {
                 type: 'time' as const,
                 time: {
-                    unit: 'minute' as const,
+                    unit: activeTimeframe.label === '1D' ? 'hour' : 'day',
                     displayFormats: {
-                        minute: 'HH:mm',
+                        hour: 'HH:mm',
+                        day: 'MMM dd',
                     },
                 },
-                grid: {
-                    color: 'rgba(255, 255, 255, 0.1)',
-                },
-                ticks: {
-                    color: '#9ca3af',
-                },
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: { color: '#9ca3af' },
             },
             y: {
                 position: 'right' as const,
-                grid: {
-                    color: 'rgba(255, 255, 255, 0.1)',
-                },
-                ticks: {
-                    color: '#9ca3af',
-                },
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: { color: '#9ca3af' },
             },
         },
         plugins: {
-            legend: {
-                display: true,
-                position: 'top' as const,
-                labels: {
-                    color: '#e5e7eb',
-                },
-            },
+            legend: { display: false },
             tooltip: {
                 mode: 'index' as const,
                 intersect: false,
+                callbacks: {
+                    label: (context: any) => {
+                        const p = context.raw;
+                        if (p.o) return `O: ${p.o} H: ${p.h} L: ${p.l} C: ${p.c}`;
+                        return `${context.dataset.label}: ${p.y.toFixed(2)}`;
+                    }
+                }
             },
         },
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center bg-gray-800 rounded-lg" style={{ height }}>
-                <div className="text-gray-400">Loading chart data...</div>
-            </div>
-        );
-    }
-
     return (
-        <div className="bg-gray-800 rounded-lg p-4">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">{symbol}</h2>
-                <div className={`flex items-center gap-2 px-3 py-1 rounded text-sm ${connected ? 'bg-green-600' : 'bg-red-600'}`}>
-                    <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-300' : 'bg-red-300'} animate-pulse`}></span>
-                    {connected ? 'Live' : 'Disconnected'}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                <div className="flex flex-col">
+                    <div className="flex items-baseline gap-2">
+                        <h2 className="text-xl font-bold text-gray-900">{symbol}</h2>
+                        {candles.length > 0 && (
+                            <span className="text-2xl font-bold text-gray-900">
+                                ₹{candles[candles.length - 1].c.toFixed(2)}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                        {isIntraday && connected ? '• Live Market' : `• ${activeTimeframe.label} View`}
+                    </p>
+                </div>
+
+                {/* Timeframe Selector */}
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                    {TIMEFRAMES.map((tf) => (
+                        <button
+                            key={tf.label}
+                            onClick={() => setActiveTimeframe(tf)}
+                            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${activeTimeframe.label === tf.label
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                        >
+                            {tf.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {error && (
-                <div className="text-red-400 mb-2 text-sm">{error}</div>
-            )}
+            {/* ERROR / LOADING */}
+            {error && <div className="text-red-500 text-sm mb-4">{error}</div>}
 
-            {candles.length === 0 ? (
-                <div className="flex items-center justify-center text-gray-500" style={{ height }}>
-                    Waiting for market data...
-                </div>
-            ) : (
-                <div style={{ height }}>
+            <div style={{ height }}>
+                {loading ? (
+                    <div className="h-full flex items-center justify-center text-gray-400 animate-pulse">
+                        Loading chart data...
+                    </div>
+                ) : candles.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-gray-400">
+                        No data available
+                    </div>
+                ) : (
                     <Chart type="candlestick" ref={chartRef} data={chartData as any} options={options as any} />
-                </div>
-            )}
-
-            {/* Current Price Display */}
-            {candles.length > 0 && (
-                <div className="mt-4 grid grid-cols-4 gap-4">
-                    <div className="bg-gray-700 p-3 rounded">
-                        <p className="text-xs text-gray-400">Open</p>
-                        <p className="text-lg font-bold text-white">₹{candles[candles.length - 1]?.o?.toFixed(2) ?? '0.00'}</p>
-                    </div>
-                    <div className="bg-gray-700 p-3 rounded">
-                        <p className="text-xs text-gray-400">High</p>
-                        <p className="text-lg font-bold text-green-400">₹{candles[candles.length - 1]?.h?.toFixed(2) ?? '0.00'}</p>
-                    </div>
-                    <div className="bg-gray-700 p-3 rounded">
-                        <p className="text-xs text-gray-400">Low</p>
-                        <p className="text-lg font-bold text-red-400">₹{candles[candles.length - 1]?.l?.toFixed(2) ?? '0.00'}</p>
-                    </div>
-                    <div className="bg-gray-700 p-3 rounded">
-                        <p className="text-xs text-gray-400">Close</p>
-                        <p className="text-lg font-bold text-white">₹{candles[candles.length - 1]?.c?.toFixed(2) ?? '0.00'}</p>
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

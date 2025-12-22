@@ -12,7 +12,11 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "types": [
+            "node",
+            "express"
+        ]
     },
     "include": [
         "src/**/*"

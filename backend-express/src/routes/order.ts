@@ -18,4 +18,7 @@ router.post('/place', authenticateToken, validateRequest(advancedOrderSchema), o
 // Order history
 router.get('/history', authenticateToken, orderController.getOrders);
 
+// Cancel order
+router.delete('/:orderId', authenticateToken, orderController.cancelOrder);
+
 export default router;

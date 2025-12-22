@@ -9,12 +9,14 @@ import { accountService } from './AccountService';
 import { marketDataService } from './MarketDataService';
 import { getTokenFromSymbol, getSymbolInfo, isValidSymbol } from '../utils/symbolMapper';
 import Account from '../models/Account';
+import Order from '../models/Order';
 
 export interface SimpleOrderRequest {
     symbol: string;
     type: 'BUY' | 'SELL';
     quantity: number;
     price?: number;
+    orderType?: 'MARKET' | 'LIMIT';
 }
 
 export interface OrderResult {
@@ -32,7 +34,7 @@ export class OrderService {
      * Automatically resolves account, maps symbol to token, and fetches current price
      */
     async placeSimpleOrder(userId: string, orderRequest: SimpleOrderRequest): Promise<OrderResult> {
-        const { symbol, type, quantity, price } = orderRequest;
+        const { symbol, type, quantity, price, orderType = 'MARKET' } = orderRequest;
 
         // 1. Validate symbol
         if (!isValidSymbol(symbol)) {
@@ -84,17 +86,29 @@ export class OrderService {
             };
         }
 
-        // 5. Get current market price if not provided
+        // 5. Get current market price (Logic depends on Order Type)
         let executionPrice = price;
-        if (!executionPrice) {
-            const marketTick = marketDataService.getPrice(symbol.toUpperCase());
-            if (marketTick) {
-                executionPrice = marketTick.price;
-            } else {
+
+        if (orderType === 'LIMIT') {
+            if (!executionPrice) {
                 return {
                     success: false,
-                    message: `No market price available for ${symbol}. Please wait for market data or specify a price.`
+                    message: 'Price is required for LIMIT order'
                 };
+            }
+            // For LIMIT orders, executionPrice is the limit price
+        } else {
+            // MARKET order
+            if (!executionPrice) {
+                const marketTick = marketDataService.getPrice(symbol.toUpperCase());
+                if (marketTick) {
+                    executionPrice = marketTick.price;
+                } else {
+                    return {
+                        success: false,
+                        message: `No market price available for ${symbol}. Please wait for market data or specify a price.`
+                    };
+                }
             }
         }
 
@@ -105,7 +119,7 @@ export class OrderService {
                 scriptToken: scriptToken,
                 symbolName: symbol.toUpperCase(),
                 exchange: 'NSE',
-                orderType: 'MARKET',
+                orderType: orderType,
                 quantity: quantity,
                 price: executionPrice,
                 transactionType: type,
@@ -138,6 +152,32 @@ export class OrderService {
             return accountService.createAccount(userId, 'Default Account', 100000, 'ANGEL_ONE');
         }
         return accounts.find(a => a.status === 'ACTIVE') || accounts[0];
+    }
+
+    /**
+     * Cancel a pending order
+     */
+    async cancelOrder(userId: string, orderId: string): Promise<OrderResult> {
+        const order = await Order.findOne({ _id: orderId });
+
+        if (!order) {
+            return { success: false, message: 'Order not found' };
+        }
+
+        // Verify ownership (via Account)
+        const account = await Account.findOne({ _id: order.accountId });
+        if (!account || account.userId.toString() !== userId) {
+            return { success: false, message: 'Unauthorized' };
+        }
+
+        if (order.status !== 'PENDING') {
+            return { success: false, message: 'Cannot cancel non-pending order' };
+        }
+
+        order.status = 'CANCELLED';
+        await order.save();
+
+        return { success: true, message: 'Order cancelled successfully', orderId };
     }
 }
 

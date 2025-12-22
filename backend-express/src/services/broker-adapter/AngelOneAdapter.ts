@@ -4,7 +4,7 @@ import * as speakeasy from 'speakeasy';
 import { IBrokerAdapter, OrderData, AuthResult } from './IBrokerAdapter';
 
 export class AngelOneAdapter extends IBrokerAdapter {
-    private baseURL: string = 'https://api.angelbroking.com';
+    private baseURL: string = 'https://apiconnect.angelbroking.com';
 
     constructor(config: any) {
         super(config);
@@ -22,8 +22,10 @@ export class AngelOneAdapter extends IBrokerAdapter {
                 encoding: 'base32'
             });
 
+            console.log(`[AngelOne] Attempting login to ${this.baseURL}/rest/auth/angelbroking/user/v1/loginByPassword`);
+
             const response1 = await axios.post(
-                `${this.baseURL}/secure/login`,
+                `${this.baseURL}/rest/auth/angelbroking/user/v1/loginByPassword`,
                 {
                     clientcode: this.config.CLIENT_CODE,
                     password: this.config.API_PASSWORD,
@@ -31,17 +33,25 @@ export class AngelOneAdapter extends IBrokerAdapter {
                 },
                 {
                     headers: {
-                        'Authorization': `Bearer ${this.config.BROKER_API_KEY}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-UserType': 'USER',
+                        'X-SourceID': 'WEB',
+                        'X-ClientLocalIP': '127.0.0.1',
+                        'X-ClientPublicIP': '127.0.0.1',
+                        'X-MACAddress': '00:00:00:00:00:00',
+                        'X-PrivateKey': this.config.BROKER_API_KEY
                     },
                     timeout: 30000
                 }
             );
 
             const data1 = response1.data as any;
-            if (data1.status === 1 && data1.data.jwtToken) {
+            console.log(`[AngelOne] Login response status: ${data1.status}, message: ${data1.message}`);
+
+            if (data1.status && data1.data?.jwtToken) {
                 this.accessToken = data1.data.jwtToken;
-                this.sessionId = data1.data.sessionID;
+                this.sessionId = data1.data.refreshToken;
                 this.tokenExpiry = new Date(Date.now() + 3600000);
 
                 return {
@@ -53,7 +63,9 @@ export class AngelOneAdapter extends IBrokerAdapter {
             }
             throw new Error(data1.message || 'Angel One Authentication Failed');
         } catch (error: any) {
-            throw new Error(`Angel One Authentication Failed: ${error.message}`);
+            const errorMsg = error.response?.data?.message || error.message;
+            console.error(`[AngelOne] Authentication error: ${errorMsg}`);
+            throw new Error(`Angel One Authentication Failed: ${errorMsg}`);
         }
     }
 

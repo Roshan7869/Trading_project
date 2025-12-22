@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { orderAPI } from '@/lib/api'
-import { TrendingUp, TrendingDown, CheckCircle, Clock, XCircle, Ban } from 'lucide-react'
+import { TrendingUp, TrendingDown, CheckCircle, Clock, XCircle, Ban, Trash2 } from 'lucide-react'
 import { useOrderUpdates } from '@/hooks/useOrderUpdates'
 import { OrdersTableSkeleton } from '@/components/Skeletons'
 import ClientDate from '@/components/ClientDate'
+import { toast } from 'sonner'
 
 interface Order {
     id: string
     symbol: string
     type: 'BUY' | 'SELL'
+    orderType: 'MARKET' | 'LIMIT'
     quantity: number
     price: number
     totalAmount: number
@@ -29,6 +31,7 @@ export default function OrdersPage() {
                 id: updatedOrder.orderId || updatedOrder._id,
                 symbol: updatedOrder.symbolName,
                 type: updatedOrder.transactionType,
+                orderType: updatedOrder.orderType || 'MARKET',
                 quantity: updatedOrder.quantity,
                 price: updatedOrder.executionDetails?.executedPrice || updatedOrder.price || 0,
                 totalAmount: (updatedOrder.executionDetails?.executedPrice || updatedOrder.price || 0) * updatedOrder.quantity,
@@ -55,11 +58,36 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
         try {
             const response = await orderAPI.getHistory()
-            setOrders(response.data.orders)
+            setOrders(response.data.orders.map((o: any) => ({
+                id: o.orderId || o._id,
+                symbol: o.symbolName,
+                type: o.transactionType,
+                orderType: o.orderType || 'MARKET',
+                quantity: o.quantity,
+                price: o.executionDetails?.executedPrice || o.price || 0,
+                totalAmount: (o.executionDetails?.executedPrice || o.price || 0) * o.quantity,
+                status: o.status,
+                timestamp: o.createdAt
+            })))
         } catch (error) {
             console.error('Failed to fetch orders:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleCancelOrder = async (orderId: string) => {
+        try {
+            const promise = orderAPI.cancelOrder(orderId);
+            toast.promise(promise, {
+                loading: 'Cancelling order...',
+                success: 'Order cancelled successfully',
+                error: 'Failed to cancel order'
+            });
+            await promise;
+            fetchOrders();
+        } catch (error) {
+            console.error(error);
         }
     }
 
@@ -109,57 +137,43 @@ export default function OrdersPage() {
                         <table className="w-full">
                             <thead className="bg-gray-50 border-b border-gray-100">
                                 <tr>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                        Symbol
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                                        Type
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                                        Quantity
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                                        Price
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                                        Total Amount
-                                    </th>
-                                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                                        Status
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                                        Time
-                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Symbol</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Type</th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Qty</th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Price</th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Value</th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Status</th>
+                                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Time</th>
+                                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {orders.map((order) => (
-                                    <tr key={order.id} className="hover:bg-gray-50 transition">
+                                {orders.map((order, index) => (
+                                    <tr key={order.id || index} className="hover:bg-gray-50 transition">
                                         <td className="px-6 py-4">
                                             <span className="font-bold text-gray-900">{order.symbol}</span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span
-                                                className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-semibold ${order.type === 'BUY'
-                                                    ? 'bg-primary/10 text-primary'
-                                                    : 'bg-danger/10 text-danger'
-                                                    }`}
-                                            >
-                                                {order.type === 'BUY' ? (
-                                                    <TrendingUp className="h-4 w-4" />
-                                                ) : (
-                                                    <TrendingDown className="h-4 w-4" />
-                                                )}
-                                                <span>{order.type}</span>
-                                            </span>
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span
+                                                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-xs font-bold uppercase ${order.type === 'BUY'
+                                                        ? 'bg-emerald-100 text-emerald-700'
+                                                        : 'bg-rose-100 text-rose-700'
+                                                        }`}
+                                                >
+                                                    {order.type === 'BUY' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                                    <span>{order.type}</span>
+                                                </span>
+                                                <span className="text-xs font-semibold text-gray-500 px-2 uppercase">{order.orderType}</span>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right text-gray-900">
+                                        <td className="px-6 py-4 text-right text-gray-900 font-medium">
                                             {order.quantity}
                                         </td>
                                         <td className="px-6 py-4 text-right text-gray-900">
                                             ₹{(order.price ?? 0).toFixed(2)}
                                         </td>
-                                        <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                                        <td className="px-6 py-4 text-right font-bold text-gray-900">
                                             ₹{(order.totalAmount ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                         </td>
                                         <td className="px-6 py-4 text-center">
@@ -169,7 +183,18 @@ export default function OrdersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm text-gray-500">
-                                            <ClientDate date={order.timestamp} />
+                                            <ClientDate date={order.timestamp} format="relative" />
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {order.status === 'PENDING' && (
+                                                <button
+                                                    onClick={() => handleCancelOrder(order.id)}
+                                                    className="p-1 text-gray-400 hover:text-red-500 transition-colors tooltip tooltip-left"
+                                                    title="Cancel Order"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

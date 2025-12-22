@@ -18,7 +18,7 @@ export interface Order {
 }
 
 export function useOrderUpdates(onOrderUpdate?: (order: Order) => void) {
-    const { socket } = useMarket();
+    const { socket, refreshPortfolio } = useMarket();
 
     useEffect(() => {
         if (!socket) return;
@@ -26,12 +26,15 @@ export function useOrderUpdates(onOrderUpdate?: (order: Order) => void) {
         const handleOrderUpdate = (order: Order) => {
             console.log('Order update received:', order);
 
+            // Notify user
             if (order.status === 'EXECUTED') {
                 toast.success(`Order Executed: ${order.transactionType} ${order.symbolName} @ ₹${order.executionDetails?.executedPrice}`);
+                refreshPortfolio(); // Automatically sync balance/holdings
             } else if (order.status === 'REJECTED') {
                 toast.error(`Order Rejected: ${order.symbolName}`);
             } else if (order.status === 'CANCELLED') {
                 toast.info(`Order Cancelled: ${order.symbolName}`);
+                refreshPortfolio();
             }
 
             if (onOrderUpdate) {
@@ -44,5 +47,5 @@ export function useOrderUpdates(onOrderUpdate?: (order: Order) => void) {
         return () => {
             socket.off('order:updated', handleOrderUpdate);
         };
-    }, [socket, onOrderUpdate]);
+    }, [socket, onOrderUpdate, refreshPortfolio]);
 }

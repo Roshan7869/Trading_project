@@ -23,7 +23,12 @@ export default function ClientDate({ date, format = 'short' }: ClientDateProps) 
         return <span className="inline-block min-w-20">--</span>
     }
 
+    if (!date) return <span>--</span>;
+
     const dateObj = typeof date === 'string' ? new Date(date) : date
+
+    if (isNaN(dateObj.getTime())) return <span>--</span>
+
 
     if (format === 'relative') {
         const now = new Date()

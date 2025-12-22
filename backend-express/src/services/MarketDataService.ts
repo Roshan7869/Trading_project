@@ -5,6 +5,9 @@ export interface IMarketData {
     timestamp: string;
     volume: number;
     source: string;
+    todayHigh?: number;
+    todayLow?: number;
+    todayOpen?: number;
 }
 
 export interface ICandle {
@@ -33,6 +36,19 @@ export class MarketDataService {
     private readonly defaultTimeframe = '1m';
 
     public updatePrice(data: IMarketData) {
+        // Track daily metrics
+        const prevData = this.cache.get(data.symbol);
+
+        if (!prevData) {
+            data.todayHigh = data.price;
+            data.todayLow = data.price;
+            data.todayOpen = data.price;
+        } else {
+            data.todayHigh = Math.max(prevData.todayHigh ?? data.price, data.price);
+            data.todayLow = Math.min(prevData.todayLow ?? data.price, data.price);
+            data.todayOpen = prevData.todayOpen ?? data.price;
+        }
+
         this.cache.set(data.symbol, data);
         this.processTick(data);
     }

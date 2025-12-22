@@ -84,6 +84,50 @@ class RedisService {
     }
 
     /**
+     * Set a value in Redis with optional expiration in seconds.
+     */
+    async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
+        if (!this.client || !this.isConnected) return false;
+        try {
+            const stringValue = JSON.stringify(value);
+            if (ttlSeconds) {
+                await this.client.set(key, stringValue, 'EX', ttlSeconds);
+            } else {
+                await this.client.set(key, stringValue);
+            }
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Get a value from Redis.
+     */
+    async get<T>(key: string): Promise<T | null> {
+        if (!this.client || !this.isConnected) return null;
+        try {
+            const value = await this.client.get(key);
+            return value ? JSON.parse(value) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    /**
+     * Delete a key from Redis.
+     */
+    async del(key: string): Promise<boolean> {
+        if (!this.client || !this.isConnected) return false;
+        try {
+            await this.client.del(key);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
      * Get the Redis client for direct operations.
      */
     getClient(): Redis | null {

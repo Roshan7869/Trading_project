@@ -5,6 +5,8 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/context/AuthContext'
 import { MarketProvider } from '@/context/MarketContext'
 import { Toaster } from 'sonner'
+import { TradePanelProvider } from '@/context/TradePanelContext'
+import TradePanel from '@/components/Trading/TradePanel'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,12 +22,15 @@ export default function RootLayout({
 }) {
     return (
         <ClerkProvider>
-            <html lang="en">
+            <html lang="en" suppressHydrationWarning>
                 <body className={inter.className} suppressHydrationWarning>
                     <AuthProvider>
                         <MarketProvider>
-                            {children}
-                            <Toaster position="top-right" richColors />
+                            <TradePanelProvider>
+                                {children}
+                                <TradePanel />
+                                <Toaster position="top-right" richColors />
+                            </TradePanelProvider>
                         </MarketProvider>
                     </AuthProvider>
                 </body>

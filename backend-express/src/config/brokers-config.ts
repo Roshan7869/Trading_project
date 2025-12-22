@@ -24,7 +24,7 @@ export const BROKER_CONFIGS = {
 
     ANGEL_ONE: {
         displayName: 'Angel One',
-        baseURL: 'https://api.angelbroking.com',
+        baseURL: 'https://apiconnect.angelbroking.com',
         endpoints: {
             login: '/secure/login',
             orders: '/rest/secure/placeorder',

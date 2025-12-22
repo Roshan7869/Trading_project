@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import io, { Socket } from 'socket.io-client';
+import { portfolioAPI, userAPI } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface MarketData {
   symbol: string;
@@ -25,8 +27,10 @@ interface MarketContextType {
   marketData: Map<string, MarketData>;
   connected: boolean;
   positions: Position[];
+  walletBalance: number;
   updatePositions: (positions: Position[]) => void;
   getPositionsWithLivePrices: () => Position[];
+  refreshPortfolio: () => Promise<void>;
   socket: Socket | null;
 }
 
@@ -38,10 +42,36 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 export function MarketProvider({ children }: { children: React.ReactNode }) {
   const [marketData, setMarketData] = useState<Map<string, MarketData>>(new Map());
   const [positions, setPositions] = useState<Position[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [connected, setConnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const { user } = useAuth();
 
   const updatesBuffer = useRef<Map<string, MarketData>>(new Map());
+
+  const refreshPortfolio = useCallback(async () => {
+    try {
+      const [portfolioRes, walletRes] = await Promise.all([
+        portfolioAPI.get(),
+        userAPI.getWallet()
+      ]);
+
+      if (portfolioRes.data?.holdings) {
+        setPositions(portfolioRes.data.holdings);
+      }
+      if (walletRes.data?.balance !== undefined) {
+        setWalletBalance(walletRes.data.balance);
+      }
+    } catch (error) {
+      console.error('Failed to refresh portfolio', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      refreshPortfolio();
+    }
+  }, [refreshPortfolio, user]);
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL, {
@@ -135,8 +165,10 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
       marketData,
       connected,
       positions,
+      walletBalance,
       updatePositions,
       getPositionsWithLivePrices,
+      refreshPortfolio,
       socket
     }}>
       {children}

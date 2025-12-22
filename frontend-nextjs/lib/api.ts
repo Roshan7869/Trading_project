@@ -83,8 +83,10 @@ export const orderAPI = {
         type: 'BUY' | 'SELL'
         quantity: number
         price?: number
+        orderType?: 'MARKET' | 'LIMIT'
     }) => api.post('/api/order/quick', data),
     getHistory: (accountId?: string) => api.get('/api/order/history', { params: { accountId } }),
+    cancelOrder: (orderId: string) => api.delete(`/api/order/${orderId}`),
 }
 
 // Portfolio APIs - Updated to match new backend response
@@ -102,15 +104,18 @@ export const accountAPI = {
 
 // Watchlist APIs
 export const watchlistAPI = {
-    get: () => api.get('/api/watchlist'),
-    add: (symbol: string) => api.post('/api/watchlist/add', { symbol }),
-    remove: (symbol: string) => api.post('/api/watchlist/remove', { symbol }),
+    getAll: () => api.get('/api/watchlist'),
+    create: (name: string) => api.post('/api/watchlist/create', { name }),
+    delete: (id: string) => api.delete(`/api/watchlist/${id}`),
+    add: (symbol: string, watchlistId?: string) => api.post('/api/watchlist/add', { symbol, watchlistId }),
+    remove: (symbol: string, watchlistId?: string) => api.post('/api/watchlist/remove', { symbol, watchlistId }),
 }
 
 // Market APIs
 export const marketAPI = {
     getPrices: () => api.get('/api/market/prices'),
     getPrice: (symbol: string) => api.get(`/api/market/price/${symbol}`),
+    getNiftyStocks: () => api.get('/api/stocks/market/nifty'),
 }
 
 // Settings APIs
