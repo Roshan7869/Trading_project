@@ -12,6 +12,7 @@ import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { QuickTrade } from '@/components/dashboard/QuickTrade';
 import { HoldingsTable } from '@/components/dashboard/HoldingsTable';
 import { MarketOverview } from '@/components/dashboard/MarketOverview';
+import { MarketMovers } from '@/components/dashboard/MarketMovers';
 
 interface Position {
   _id: string;
@@ -47,14 +48,9 @@ export default function DashboardPage() {
   // Stock list
   const STOCKS = getStockSymbols();
 
-  // Helper for scrolling to QuickTrade
-  const scrollToQuickTrade = (symbol: string) => {
-    // In a future update, we can make QuickTrade accept an initial symbol via prop and update it here
-    // For now, we just pass the handler, but the current QuickTrade component manages its own selection state.
-    // To fix this, we'd need to lift the 'selectedStock' state up. 
-    // Given the complexity, we will skip auto-selecting for now or refactor QuickTrade to take props if needed
-    // But for this refactor, we just keep it simple.
-    console.log("Selected from overview:", symbol);
+  // Navigate to stock details
+  const handleStockClick = (symbol: string) => {
+    router.push(`/stocks/${symbol}`);
   };
 
   useEffect(() => {
@@ -115,12 +111,23 @@ export default function DashboardPage() {
           <HoldingsTable loading={loading} positions={portfolio?.positions || []} />
         </div>
 
-        {/* Market Overview */}
-        <MarketOverview
-          stocks={STOCKS}
-          marketData={marketData}
-          onSelectStock={scrollToQuickTrade}
-        />
+        {/* Market Movers & Overview */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          <div className="lg:col-span-1 h-full">
+            <MarketMovers
+              marketData={marketData}
+              onSelectStock={handleStockClick}
+              loading={marketData.size === 0}
+            />
+          </div>
+          <div className="lg:col-span-2 h-full">
+            <MarketOverview
+              stocks={STOCKS}
+              marketData={marketData}
+              onSelectStock={handleStockClick}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

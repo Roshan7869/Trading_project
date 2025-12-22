@@ -1,4 +1,5 @@
 import React from 'react';
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Position {
     _id: string;
@@ -37,8 +38,17 @@ export function HoldingsTable({ loading, positions }: HoldingsTableProps) {
             <h2 className="text-lg font-semibold mb-4">Your Holdings</h2>
 
             {loading ? (
-                <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center space-x-4 p-4 border rounded-xl">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                                <Skeleton className="h-4 w-[200px]" />
+                                <Skeleton className="h-4 w-[150px]" />
+                            </div>
+                            <Skeleton className="h-8 w-16" />
+                        </div>
+                    ))}
                 </div>
             ) : positions && positions.length > 0 ? (
                 <div className="overflow-x-auto">

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface MarketData {
     price: number;
@@ -26,7 +27,7 @@ export function MarketOverview({ stocks, marketData, onSelectStock }: MarketOver
     };
 
     return (
-        <div className="mt-6 bg-white rounded-2xl shadow-sm p-6 border">
+        <div className="bg-white rounded-2xl shadow-sm p-6 border">
             <h2 className="text-lg font-semibold mb-4">Market Overview</h2>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -47,7 +48,10 @@ export function MarketOverview({ stocks, marketData, onSelectStock }: MarketOver
                                     </p>
                                 </>
                             ) : (
-                                <p className="text-gray-400">Loading...</p>
+                                <div className="space-y-2">
+                                    <Skeleton className="h-6 w-20" />
+                                    <Skeleton className="h-4 w-12" />
+                                </div>
                             )}
                         </div>
                     );

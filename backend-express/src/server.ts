@@ -170,87 +170,77 @@ function startMockMarketData() {
 
 // Connect Redis and subscribe to market data
 // Connect Redis and subscribe to market data
-const connectRedis = async () => {
-    try {
-        // Create a promise that rejects after a timeout
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Redis connection timeout')), 2000);
-        });
+const connectRedis = async (retries = 10, delay = 3000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await redisSubscriber.connect();
+            logger.info('✅ Redis subscriber connected');
 
-        // Race between connection and timeout
-        await Promise.race([
-            redisSubscriber.connect(),
-            timeoutPromise
-        ]);
+            // Market Data Subscription
+            await redisSubscriber.subscribe('market_ticks', (message) => {
+                try {
+                    if (mongoose.connection.readyState !== 1) return;
 
-        logger.info('✅ Redis subscriber connected');
-
-        // Market Data Subscription
-        await redisSubscriber.subscribe('market_ticks', (message) => {
-            try {
-                if (mongoose.connection.readyState !== 1) return;
-
-                const marketData = JSON.parse(message);
-                marketDataService.updatePrice(marketData);
-                paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
-                io.emit('market_update', marketData);
-            } catch (error) {
-                logger.error(`Error parsing market data: ${error}`);
-            }
-        });
-
-        // Algo Strategy Subscription
-        await redisSubscriber.subscribe('order_signals', async (message) => {
-            try {
-                if (mongoose.connection.readyState !== 1) return;
-
-                const signal = JSON.parse(message);
-                const { symbol, type, quantity, price } = signal;
-                logger.info(`🤖 Algo Signal Received: ${type} ${symbol} @ ${price}`);
-
-                // 1. Resolve Token and Symbol Info
-                const scriptToken = getTokenFromSymbol(symbol);
-                if (!scriptToken) {
-                    logger.warn(`⚠️ Skipping Algo Signal: Unsupported symbol ${symbol}`);
-                    return;
+                    const marketData = JSON.parse(message);
+                    marketDataService.updatePrice(marketData);
+                    paperTradingEngine.processPendingOrders(marketData.symbol, marketData.price);
+                    io.emit('market_update', marketData);
+                } catch (error) {
+                    logger.error(`Error parsing market data: ${error}`);
                 }
+            });
 
-                // 2. Find/Create Account for Algo Trades
-                // We'll use the first active account found, or create a default one for a 'system' user context
-                const account = await mongoose.model('Account').findOne({ status: 'ACTIVE' });
+            // Algo Strategy Subscription
+            await redisSubscriber.subscribe('order_signals', async (message) => {
+                try {
+                    if (mongoose.connection.readyState !== 1) return;
 
-                if (!account) {
-                    logger.warn('⚠️ No active account found to execute Algo Strategy order.');
-                    return;
+                    const signal = JSON.parse(message);
+                    const { symbol, type, quantity, price } = signal;
+                    logger.info(`🤖 Algo Signal Received: ${type} ${symbol} @ ${price}`);
+
+                    const scriptToken = getTokenFromSymbol(symbol);
+                    if (!scriptToken) {
+                        logger.warn(`⚠️ Skipping Algo Signal: Unsupported symbol ${symbol}`);
+                        return;
+                    }
+
+                    const account = await mongoose.model('Account').findOne({ status: 'ACTIVE' });
+
+                    if (!account) {
+                        logger.warn('⚠️ No active account found to execute Algo Strategy order.');
+                        return;
+                    }
+
+                    await paperTradingEngine.placeOrder({
+                        accountId: account._id.toString(),
+                        symbolName: symbol.toUpperCase(),
+                        scriptToken: scriptToken,
+                        exchange: 'NSE',
+                        transactionType: type,
+                        orderType: 'MARKET',
+                        quantity: quantity || 10,
+                        price: price
+                    });
+
+                    logger.info(`✅ Algo Trade Executed: ${type} ${quantity} ${symbol} for account ${account.accountName}`);
+
+                } catch (error) {
+                    logger.error(`❌ Error executing Algo Signal: ${error}`);
                 }
+            });
 
-                // 3. Place Order via PaperTradingEngine
-                await paperTradingEngine.placeOrder({
-                    accountId: account._id.toString(),
-                    symbolName: symbol.toUpperCase(),
-                    scriptToken: scriptToken,
-                    exchange: 'NSE',
-                    transactionType: type,
-                    orderType: 'MARKET',
-                    quantity: quantity || 10,
-                    price: price
-                });
-
-                logger.info(`✅ Algo Trade Executed: ${type} ${quantity} ${symbol} for account ${account.accountName}`);
-
-            } catch (error) {
-                logger.error(`❌ Error executing Algo Signal: ${error}`);
+            return; // Success, exit loop
+        } catch (err: any) {
+            logger.warn(`⚠️ Redis connection attempt ${i + 1}/${retries} failed: ${err.message}`);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
-        });
-
-    } catch (err: any) {
-        logger.warn(`⚠️ Redis connection failed/timed out, switching to MOCK data: ${err.message}`);
-        // If connection failed, ensure we're disconnected to stop retries if client is active
-        if (redisSubscriber.isOpen) {
-            await redisSubscriber.disconnect();
         }
-        startMockMarketData();
     }
+
+    logger.error('❌ Failed to connect to Redis after multiple attempts. Market ticks will not be available.');
+    // We intentionally do NOT start mock data to maintain data integrity.
 };
 
 // Start initialization

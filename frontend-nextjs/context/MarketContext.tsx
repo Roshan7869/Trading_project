@@ -74,6 +74,36 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   }, [refreshPortfolio, user]);
 
   useEffect(() => {
+    // Fetch initial prices from fast API endpoint
+    const fetchInitialPrices = async () => {
+      try {
+        const response = await fetch('http://localhost:5001/api/tickers');
+        const data = await response.json();
+        if (data.tickers && data.tickers.length > 0) {
+          setMarketData((prev) => {
+            const newMap = new Map(prev);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data.tickers.forEach((item: any) => {
+              newMap.set(item.symbol, {
+                symbol: item.symbol,
+                price: item.price,
+                change: item.changePercent ?? item.change ?? 0,
+                timestamp: item.timestamp,
+                volume: item.volume,
+                source: item.source
+              });
+            });
+            return newMap;
+          });
+          console.log(`Loaded ${data.tickers.length} prices from ticker API`);
+        }
+      } catch (error) {
+        console.warn('Could not fetch initial prices from ticker API:', error);
+      }
+    };
+
+    fetchInitialPrices();
+
     const newSocket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'], // Prefer WebSocket for faster connection
       reconnection: true,

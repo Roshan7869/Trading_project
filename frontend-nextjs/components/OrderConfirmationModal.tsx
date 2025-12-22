@@ -85,6 +85,8 @@ export default function OrderConfirmationModal({
             setIsConfirmed(false);
             setIsConfirming(false);
             setCountdown(3);
+        } else {
+            setIsConfirmed(false);
         }
     }, [isOpen]);
 

@@ -27,6 +27,61 @@ REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
 CACHE_DURATION = 30  
 UPDATE_INTERVAL = 10 
 
+# Static Data Configuration
+STATIC_DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'nse_history.json')
+STATIC_DATA = {}
+
+def load_static_data():
+    global STATIC_DATA
+    if os.path.exists(STATIC_DB_PATH):
+        try:
+            with open(STATIC_DB_PATH, 'r') as f:
+                STATIC_DATA = json.load(f)
+            logger.info(f"✅ Loaded Static DB from {STATIC_DB_PATH} with {len(STATIC_DATA.get('data', {}))} symbols")
+        except Exception as e:
+            logger.error(f"❌ Failed to load Static DB: {e}")
+    else:
+        logger.warning(f"⚠️ Static DB not found at {STATIC_DB_PATH}")
+
+load_static_data()
+
+def prepopulate_cache_from_static():
+    """Pre-populate in-memory cache from static data for instant responses."""
+    global cache
+    if not STATIC_DATA or 'data' not in STATIC_DATA:
+        return
+    
+    for symbol, records in STATIC_DATA['data'].items():
+        if not records:
+            continue
+        
+        last = records[-1]
+        prev = records[-2] if len(records) > 1 else last
+        
+        price = float(last['Close'])
+        prev_close = float(prev['Close'])
+        change = price - prev_close
+        change_pct = (change / prev_close * 100) if prev_close else 0
+        
+        cache[symbol] = {
+            'data': {
+                'symbol': symbol,
+                'price': round(price, 2),
+                'change': round(change, 2),
+                'changePercent': round(change_pct, 2),
+                'previousClose': round(prev_close, 2),
+                'high': float(last['High']),
+                'low': float(last['Low']),
+                'open': float(last['Open']),
+                'volume': int(last['Volume']),
+                'timestamp': datetime.now().isoformat(),
+                'source': 'static_db'
+            },
+            'timestamp': datetime.now()
+        }
+    
+    logger.info(f"📊 Pre-populated cache with {len(cache)} symbols from Static DB") 
+
 # Configure yfinance with custom session to avoid 429 errors
 # Configure session
 session = requests.Session()
@@ -41,6 +96,24 @@ opt_engine = OptimizationEngine(session=session)
 # In-memory cache
 cache = {}
 
+# Pre-populate cache immediately after Redis setup
+def init_cache():
+    prepopulate_cache_from_static()
+    # Publish initial prices to Redis if connected
+    if REDIS_CONNECTED and redis_client:
+        for symbol, data in cache.items():
+            tick = {
+                'symbol': symbol,
+                'price': data['data']['price'],
+                'change': data['data']['changePercent'],
+                'timestamp': data['data']['timestamp']
+            }
+            try:
+                redis_client.publish('market_ticks', json.dumps(tick))
+            except:
+                pass
+        logger.info("📡 Published initial prices to Redis")
+
 # Connect to Redis for publishing ticks
 try:
     redis_client = redis.from_url(REDIS_URL)
@@ -51,6 +124,9 @@ except:
     redis_client = None
     REDIS_CONNECTED = False
     logger.warning("⚠️ Redis not available, using in-memory cache only")
+
+# Initialize cache with static data
+init_cache()
 
 # Indian Stock Symbols (NSE) - Nifty 50 + others
 NIFTY_50_SYMBOLS = [
@@ -141,6 +217,45 @@ def fetch_stock_data(ticker: str) -> dict:
 def fetch_batch_quotes(tickers: list) -> dict:
     """Fetch quotes for multiple tickers efficiently."""
     results = {}
+    
+    # Try STATIC DATA first for Watchlist
+    if STATIC_DATA and 'data' in STATIC_DATA:
+        missing_tickers = []
+        for ticker in tickers:
+            local = get_local_symbol(ticker) # ticker might be .NS
+            if local in STATIC_DATA['data']:
+                records = STATIC_DATA['data'][local]
+                if records:
+                    last = records[-1]
+                    prev = records[-2] if len(records) > 1 else last
+                    
+                    price = float(last['Close'])
+                    prev_close = float(prev['Close'])
+                    change = price - prev_close
+                    change_pct = (change / prev_close * 100) if prev_close else 0
+                    
+                    results[ticker] = {
+                        'symbol': ticker, # Return requested ticker
+                        'price': round(price, 2),
+                        'change': round(change, 2),
+                        'changePercent': round(change_pct, 2),
+                        'previousClose': round(prev_close, 2),
+                        'volume': int(last['Volume']),
+                        'timestamp': datetime.now().isoformat(),
+                        'source': 'static_db'
+                    }
+                else:
+                    missing_tickers.append(ticker)
+            else:
+                missing_tickers.append(ticker)
+                
+        if not missing_tickers:
+            return results
+        # If missing, fall through to Live? Or just return what we have?
+        # If User wants ALL from file, we should arguably skip live.
+        # But for hybrid, we can let missing go to yfinance.
+        tickers = missing_tickers
+        
     yf_symbols = [get_yf_symbol(t) for t in tickers]
     
     try:
@@ -199,6 +314,20 @@ def fetch_batch_quotes(tickers: list) -> dict:
 
 # ============== API ROUTES ==============
 
+@app.route('/api/tickers', methods=['GET'])
+def get_all_tickers():
+    """Get all cached prices instantly - for initial page load."""
+    tickers = []
+    for symbol, data in cache.items():
+        tickers.append(data['data'])
+    
+    return jsonify({
+        'tickers': tickers,
+        'count': len(tickers),
+        'source': 'static_cache',
+        'timestamp': datetime.now().isoformat()
+    })
+
 @app.route('/api/stocks/<ticker>', methods=['GET'])
 def get_stock(ticker):
     """Get current stock data for a single ticker."""
@@ -235,7 +364,48 @@ def get_history(ticker):
     
     try:
         yf_symbol = get_yf_symbol(ticker)
+        local_symbol = get_local_symbol(yf_symbol)
         
+        # Check Static Data First
+        if STATIC_DATA and local_symbol in STATIC_DATA.get('data', {}):
+            logger.info(f"Using Static Data for {local_symbol}")
+            records = STATIC_DATA['data'][local_symbol]
+            
+            # Simple filtering or return all
+            # Ideally filter by period (approx)
+            # For now return full static history
+            
+            ohlcv = []
+            for row in records:
+                 ohlcv.append({
+                    'date': row['Date'],
+                    'open': row['Open'],
+                    'high': row['High'],
+                    'low': row['Low'],
+                    'close': row['Close'],
+                    'volume': row['Volume']
+                 })
+                 
+            # Convert to DataFrame for Indicators
+            df = pd.DataFrame(records)
+            df.columns = [c.lower() for c in df.columns] # Open -> open
+            
+            from indicator_service import IndicatorService
+            indicator_data = {'overlays': {}, 'panes': {}}
+            if selected_indicators:
+                indicator_data = IndicatorService.calculate_selected(df, selected_indicators)
+                
+            return jsonify({
+                'symbol': ticker.upper(),
+                'period': period,
+                'interval': interval,
+                'ohlcv': ohlcv,
+                'indicators': indicator_data,
+                'count': len(ohlcv),
+                'source': 'static_db'
+            })
+
+        # Fallback to Live/Optimized
         # Use Optimization Engine for incremental fetch
         # This handles caching (Memory/SQLite) and rate limiting
         historical = opt_engine.fetch_incremental(yf_symbol, interval=interval, period=period)
