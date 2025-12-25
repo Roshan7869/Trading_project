@@ -74,74 +74,86 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
   }, [refreshPortfolio, user]);
 
   useEffect(() => {
-    // Fetch initial prices from fast API endpoint
+    // Fetch initial prices from backend API (no separate ticker service needed)
     const fetchInitialPrices = async () => {
       try {
-        const response = await fetch('http://localhost:5001/api/tickers');
+        // Use backend API to get initial Nifty stocks data
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const response = await fetch(`${apiUrl}/api/stocks/watchlist/indian`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
         const data = await response.json();
-        if (data.tickers && data.tickers.length > 0) {
+        if (data.stocks && data.stocks.length > 0) {
           setMarketData((prev) => {
             const newMap = new Map(prev);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data.tickers.forEach((item: any) => {
+            data.stocks.forEach((item: any) => {
               newMap.set(item.symbol, {
                 symbol: item.symbol,
                 price: item.price,
                 change: item.changePercent ?? item.change ?? 0,
                 timestamp: item.timestamp,
                 volume: item.volume,
-                source: item.source
+                source: item.source || 'api'
               });
             });
             return newMap;
           });
-          console.log(`Loaded ${data.tickers.length} prices from ticker API`);
+          console.log(`Loaded ${data.stocks.length} prices from backend API`);
         }
       } catch (error) {
-        console.warn('Could not fetch initial prices from ticker API:', error);
+        // API unavailable - will get data from socket instead
+        console.info('Initial prices API unavailable, will use socket for market data');
       }
     };
 
+    // Defer socket initialization significantly to prioritize initial render
+    let newSocket: Socket | null = null;
+
+    // First, try to get initial prices quickly (non-blocking)
     fetchInitialPrices();
 
-    const newSocket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'], // Prefer WebSocket for faster connection
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-    });
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
-      console.log('Connected to market data stream');
-      setConnected(true);
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from market data stream');
-      setConnected(false);
-    });
-
-    // Handle initial market data from cache
-    newSocket.on('initial_market_data', (data: MarketData[]) => {
-      setMarketData((prev) => {
-        const newMap = new Map(prev);
-        data.forEach((item) => {
-          newMap.set(item.symbol, item);
-        });
-        return newMap;
+    // Then defer socket connection to after page is interactive
+    const initTimeoutId = setTimeout(() => {
+      newSocket = io(SOCKET_URL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
       });
-    });
+      setSocket(newSocket);
 
-    // Handle real-time market updates - BUFFERED
-    newSocket.on('market_update', (data: MarketData) => {
-      // Store in buffer instead of updating state immediately
-      updatesBuffer.current.set(data.symbol, data);
-    });
+      newSocket.on('connect', () => {
+        console.log('Connected to market data stream');
+        setConnected(true);
+      });
 
-    // Flush buffer every 500ms to reduce re-renders
+      newSocket.on('disconnect', () => {
+        console.log('Disconnected from market data stream');
+        setConnected(false);
+      });
+
+      newSocket.on('initial_market_data', (data: MarketData[]) => {
+        setMarketData((prev) => {
+          const newMap = new Map(prev);
+          data.forEach((item) => {
+            newMap.set(item.symbol, item);
+          });
+          return newMap;
+        });
+      });
+
+      newSocket.on('market_update', (data: MarketData) => {
+        updatesBuffer.current.set(data.symbol, data);
+      });
+    }, 1000); // Increased to 1 second to let page fully render first
+
+    // Flush buffer every 300ms to reduce re-renders (was 200ms)
     const flushInterval = setInterval(() => {
       if (updatesBuffer.current.size > 0) {
         setMarketData((prev) => {
@@ -153,20 +165,21 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
           return newMap;
         });
       }
-    }, 200);
+    }, 300);
 
     return () => {
-      newSocket.disconnect();
+      clearTimeout(initTimeoutId);
+      if (newSocket) {
+        newSocket.disconnect();
+      }
       clearInterval(flushInterval);
     };
   }, []);
 
-  // Update positions from portfolio fetch
   const updatePositions = useCallback((newPositions: Position[]) => {
     setPositions(newPositions);
   }, []);
 
-  // Get positions with live prices from market data
   const getPositionsWithLivePrices = useCallback((): Position[] => {
     return positions.map(pos => {
       const liveData = marketData.get(pos.symbol);
