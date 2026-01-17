@@ -145,8 +145,3 @@ The backend includes a `TEST_MODE` in `src/middleware/auth.ts` and `src/utils/te
 | **Redis connection failed** | Use Docker. Backend will auto-switch to **Mock Market Data** if Redis is missing locally. |
 | **"EADDRINUSE: 4000"** | Kill existing node processes: `taskkill /F /IM node.exe` |
 
-## License
-
-MIT License
-
-# This change is done by Ravi Kesharwani
